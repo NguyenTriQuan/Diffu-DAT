@@ -2,13 +2,16 @@
 
 Implementation for the ICLR2023 paper "**Fuzzy Alignments in Directed Acyclic Graph for Non-autoregressive Machine Translation**".
 
-**Abstract**: Directed Acyclic Transformer (DA-Transformer) represents the hidden states in a Directed Acyclic Graph (DAG), where each path of the DAG corresponds to a specific translation. The whole DAG simultaneously captures multiple translations and facilitates fast predictions in a non-autoregressive fashion.
+**Abstract**: We introduce a fuzzy alignment objective between the directed acyclic graph and
+reference sentence based on n-gram matching. Our proposed objective can better handle predictions
+with position shift, word reordering, or length variation, which are critical sources of translation
+multi-modality. Experiments demonstrate that our method facilitates training of DA-Transformer,
+achieves comparable performance to autoregressive baseline with fully parallel decoding, and sets
+new state of the art for NAT on the raw training data.
 
-**Practical Advantages**: 
-
-* DA-Transformer can be effectively trained **without Knowledge Distillation**
-* DA-Transformer **outperforms strong baselines (GLAT+CTC) by 3 BLEU** when training on the raw data
-* DA-Transformer achieve **competitive performance with the autoregressive Transformer**, while **preserving 7~14 times latency speedup in inference**
+**Highlights**: 
+* FA-DAT **outperforms DA-Transformer baseline by 1.1 BLEU** on the raw WMT17 ZH-EN dataset.
+* FA-DAT **achieves the performance of the autoregressive Transformer** on raw WMT14 EN-DE/DE-EN & WMT17 ZH-EN dataset with **fully parallel decoding (13 times speedup)**
 
 
 
