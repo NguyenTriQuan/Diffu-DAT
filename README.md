@@ -15,8 +15,8 @@ This repo is forked from [``DA-Transformer``](https://github.com/thu-coai/DA-Tra
 
 **Features**:
 
-- We provide **numba implementations (optional)** for dynamic programming in the calculation of fuzzy alignment to speedup the training. 
-- We also provide the functions implemented in PyTorch (by default).
+- We provide **[``numba``](https://github.com/numba/numba) implementations (optional)** for dynamic programming in the calculation of fuzzy alignment to speedup the training. 
+- We also provide the functions implemented in **[``PyTorch``](https://github.com/pytorch/pytorch) (by default)**.
 
 
 ## Requirements & Installation
