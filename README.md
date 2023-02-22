@@ -3,11 +3,7 @@
 Implementation for the ICLR2023 paper "**Fuzzy Alignments in Directed Acyclic Graph for Non-autoregressive Machine Translation**".
 
 **Abstract**: We introduce a fuzzy alignment objective between the directed acyclic graph and
-reference sentence based on n-gram matching. Our proposed objective can better handle predictions
-with position shift, word reordering, or length variation, which are critical sources of translation
-multi-modality. Experiments demonstrate that our method facilitates training of DA-Transformer,
-achieves comparable performance to autoregressive baseline with fully parallel decoding, and sets
-new state of the art for NAT on the raw training data.
+reference sentence based on n-gram matching, aiming to handle the training data multi-modality.
 
 **Highlights**: 
 * FA-DAT **outperforms DA-Transformer baseline by 1.1 BLEU** on the raw WMT17 ZH-EN dataset.
@@ -15,11 +11,12 @@ new state of the art for NAT on the raw training data.
 
 
 
-This repo is forked from [``DA-Transformer``](https://github.com/thu-coai/DA-Transformer), which is modified from [``fairseq:5175fd``](https://github.com/pytorch/fairseq/tree/5175fd5c267adceec9445bf067597686e159e7e7). You can refer to [fairseq documentation](https://fairseq.readthedocs.io/en/latest/) for more information.
+This repo is forked from [``DA-Transformer``](https://github.com/thu-coai/DA-Transformer), which is modified from [``fairseq:5175fd``](https://github.com/pytorch/fairseq/tree/5175fd5c267adceec9445bf067597686e159e7e7). You can refer to above repos for more information.
 
 **Features**:
 
-- We provide **numba implementations** (optional) for dynamic programming in the calculation of fuzzy alignment to improve the training speed. If you do not want to use the numba implementations, we also provide the functions implemented in PyTorch (by default).
+- We provide **numba implementations (optional)** for dynamic programming in the calculation of fuzzy alignment to speedup the training. 
+- We also provide the functions implemented in PyTorch (by default).
 
 
 ## Requirements & Installation
