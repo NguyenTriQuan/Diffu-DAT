@@ -11,28 +11,25 @@ new state of the art for NAT on the raw training data.
 
 **Highlights**: 
 * FA-DAT **outperforms DA-Transformer baseline by 1.1 BLEU** on the raw WMT17 ZH-EN dataset.
-* FA-DAT **achieves the performance of the autoregressive Transformer** on raw WMT14 EN-DE/DE-EN & WMT17 ZH-EN dataset with **fully parallel decoding (13 times speedup)**
+* FA-DAT **achieves the performance of the autoregressive Transformer** on raw WMT14 EN-DE/DE-EN & WMT17 ZH-EN dataset with **fully parallel decoding (13 times speedup)**.
 
 
 
-
-
-This repo is modified from [``fairseq:5175fd``](https://github.com/pytorch/fairseq/tree/5175fd5c267adceec9445bf067597686e159e7e7), please see [fairseq documentation](https://fairseq.readthedocs.io/en/latest/) for more information.
+This repo is forked from [``DA-Transformer``](https://github.com/thu-coai/DA-Transformer), which is modified from [``fairseq:5175fd``](https://github.com/pytorch/fairseq/tree/5175fd5c267adceec9445bf067597686e159e7e7). You can refer to [fairseq documentation](https://fairseq.readthedocs.io/en/latest/) for more information.
 
 **Features**:
 
-- We provide **cuda implementations** (enable by default) for dynamic programming and several other operations to improve the training speed and reduce GPU memory usage. If you do not want to use the custom cuda implementations, we also provide the functions implemented in PyTorch native operations.
-- We support [LightSeq](https://github.com/bytedance/lightseq) to boost the training speed. (The speed up reported in the paper does not use LightSeq.)
-- We provide a multi-thread C++ implementation for BeamSearch.
+- We provide **numba implementations** (optional) for dynamic programming in the calculation of fuzzy alignment to improve the training speed. If you do not want to use the numba implementations, we also provide the functions implemented in PyTorch (by default).
+
 
 ## Requirements & Installation
 
 * Python >= 3.7
 * Pytorch == 1.10.1 (tested with cuda == 10.2 or 11.3)
-* gcc >= 7.0.0 (for compiling cuda operations. See FAQs if you want to use a lower gcc version)
+* gcc >= 7.0.0 (for compiling cuda operations in naive DA-Transformer training)
 * ``git clone --recurse-submodules https://github.com/thu-coai/DA-Transformer.git && pip install -e .``
-* (Optional) Customized LightSeq for NAT (``cd lightseq && pip install -e .``)
-* (Optional) BeamSearch algorithm for DA-Transformer (``cd dag_search && bash install.sh``)
+* (Optional) numba == 
+
 
 ## Main Files
 
