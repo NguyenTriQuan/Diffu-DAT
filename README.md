@@ -1,6 +1,6 @@
 # FA-DAT
 
-Implementation for the ICLR2023 paper "[``**Fuzzy Alignments in Directed Acyclic Graph for Non-autoregressive Machine Translation``](https://openreview.net/forum?id=LSz-gQyd0zE)**".
+Implementation for the ICLR2023 paper "**[``Fuzzy Alignments in Directed Acyclic Graph for Non-autoregressive Machine Translation``](https://openreview.net/forum?id=LSz-gQyd0zE)**".
 
 **Abstract**: We introduce a fuzzy alignment objective between the directed acyclic graph and
 reference sentence based on n-gram matching, aiming to handle the training data multi-modality.
