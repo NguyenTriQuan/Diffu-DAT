@@ -1,13 +1,13 @@
 # FA-DAT
 
-Implementation for the ICLR2023 paper "**[``Fuzzy Alignments in Directed Acyclic Graph for Non-autoregressive Machine Translation``](https://openreview.net/forum?id=LSz-gQyd0zE)**".
+Implementation for the ICLR 2023 paper "**[``Fuzzy Alignments in Directed Acyclic Graph for Non-autoregressive Machine Translation``](https://openreview.net/forum?id=LSz-gQyd0zE)**".
 
 **Abstract**: We introduce a fuzzy alignment objective between the directed acyclic graph and
 reference sentence based on n-gram matching, aiming to handle the training data multi-modality.
 
 **Highlights**: 
-* FA-DAT **outperforms DA-Transformer baseline by 1.1 BLEU** on the raw WMT17 ZH-EN dataset.
-* FA-DAT **achieves the performance of the autoregressive Transformer** on raw WMT14 EN-DE/DE-EN & WMT17 ZH-EN dataset with **fully parallel decoding (13 times speedup)**.
+* FA-DAT **outperforms DA-Transformer baseline by 1.1 BLEU** on raw WMT17 ZH<->EN dataset.
+* FA-DAT **achieves the performance of the autoregressive Transformer** on raw WMT14 EN<->DE & WMT17 ZH-EN dataset with **fully parallel decoding (13× speedup)**.
 
 
 
