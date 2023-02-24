@@ -22,10 +22,10 @@ This repo is forked from [``DA-Transformer``](https://github.com/thu-coai/DA-Tra
 ## Requirements & Installation
 
 * Python >= 3.7
-* Pytorch == 1.10.1 (tested with cuda == 10.2 or 11.3)
-* gcc >= 7.0.0 (for compiling cuda operations in naive DA-Transformer training)
-* ``git clone --recurse-submodules https://github.com/thu-coai/DA-Transformer.git && pip install -e .``
-* (Optional) numba == 
+* Pytorch == 1.10.1 (tested with cuda == 11.3)
+* gcc >= 7.0.0 (for compiling cuda operations in NLL pretraining, as recommended in [``DA-Transformer``](https://github.com/thu-coai/DA-Transformer))
+* ``git clone --recurse-submodules https://github.com/ictnlp/FA-DAT.git && pip install -e .``
+* (Optional) numba == 0.56.2
 
 
 ## Main Files
