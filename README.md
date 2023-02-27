@@ -192,7 +192,7 @@ For WMT17 En-Zh, please add ``--source-lang en --target-lang zh --tokenizer mose
 
 **Note: ``decode_viterbibeta`` should be tuned for each translation task on the development set. Following the Viterbi-decoding paper, we tune the parameter to obtain a results with similar translation length as lookahead decoding.**
 
-For the convenience of reproduction, we provide the settings of ``decode_viterbibeta`` used in our experiments on all tasks below:
+For the convenience of reproduction, we provide the settings of ``decode_viterbibeta`` used in FA-DAT on all tasks below:
 
 | Task |  En-De  |  De-En  | Zh-En  | En-Zh     |
 | ---- | ---- | ---- | ---- | ---- |
