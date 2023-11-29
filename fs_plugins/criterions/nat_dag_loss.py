@@ -136,13 +136,17 @@ class NATDAGLoss(FairseqCriterion):
             match_all = match_all.masked_fill(glat_prev_mask, 0) + match_all.masked_fill(~matchmask, float("-inf")).masked_fill(~glat_prev_mask, 0).detach()
         nvalidtokens = output_masks.sum()
 
-        if self.cfg.torch_dag_loss:
-            if model.args.max_transition_length != -1:
-                links = model.restore_valid_links(links)
-            loss_result = torch_dag_loss(match_all, links, output_length, target_length)
-        else:
-            assert model.args.max_transition_length != -1, "cuda dag loss does not support max_transition_length=-1. You can use a very large number such as 99999"
-            loss_result = dag_loss(match_all, links, output_length, target_length)
+        if model.args.max_transition_length != -1:
+            links = model.restore_valid_links(links)
+        loss_result = torch_dag_loss(match_all, links, output_length, target_length)
+        
+        # if self.cfg.torch_dag_loss:
+        #     if model.args.max_transition_length != -1:
+        #         links = model.restore_valid_links(links)
+        #     loss_result = torch_dag_loss(match_all, links, output_length, target_length)
+        # else:
+        #     assert model.args.max_transition_length != -1, "cuda dag loss does not support max_transition_length=-1. You can use a very large number such as 99999"
+        #     loss_result = dag_loss(match_all, links, output_length, target_length)
 
         invalid_masks = loss_result.isinf().logical_or(loss_result.isnan())
         loss_result.masked_fill_(invalid_masks, 0)
