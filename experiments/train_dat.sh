@@ -18,7 +18,7 @@ CUDA_VISIBLE_DEVICES=0 fairseq-train ${data_dir}  \
     --label-smoothing 0.0 --weight-decay 0.01 --dropout 0.1 \
     --lr-scheduler inverse_sqrt  --warmup-updates 10000   \
     --clip-norm 0.1 --lr 0.0005 --warmup-init-lr '1e-07' --stop-min-lr '1e-09' \
-    --max-tokens 4096  --update-freq 4 --grouped-shuffling \
+    --max-tokens 4096  --update-freq 1 --grouped-shuffling \
     --max-update 200000 --max-tokens-valid 4096 \
     --save-interval 1  --save-interval-updates 10000  \
     --seed 0 \

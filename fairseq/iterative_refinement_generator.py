@@ -154,7 +154,7 @@ class IterativeRefinementGenerator(object):
             )
             bsz = bsz * self.beam_size
 
-        sent_idxs = torch.arange(bsz)
+        # sent_idxs = torch.arange(bsz)
         prev_output_tokens = prev_decoder_out.output_tokens.clone()
 
         if self.retain_history:
@@ -235,7 +235,7 @@ class IterativeRefinementGenerator(object):
                 terminated.fill_(1)
 
             # collect finalized sentences
-            finalized_idxs = sent_idxs[terminated]
+            # finalized_idxs = sent_idxs[terminated]
             finalized_tokens = decoder_out.output_tokens[terminated]
             finalized_scores = decoder_out.output_scores[terminated]
             finalized_attn = (
@@ -285,7 +285,7 @@ class IterativeRefinementGenerator(object):
             encoder_out = model.encoder.reorder_encoder_out(
                 encoder_out, not_terminated.nonzero(as_tuple=False).squeeze()
             )
-            sent_idxs = sent_idxs[not_terminated]
+            # sent_idxs = sent_idxs[not_terminated]
             prev_output_tokens = prev_decoder_out.output_tokens.clone()
 
         if self.beam_size > 1:
