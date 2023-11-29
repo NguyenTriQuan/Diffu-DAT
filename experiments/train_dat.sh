@@ -25,7 +25,7 @@ CUDA_VISIBLE_DEVICES=0 fairseq-train ${data_dir}  \
     --valid-subset valid \
     --validate-interval 1       --validate-interval-updates 10000 \
     --eval-bleu --eval-bleu-args '{"iter_decode_max_iter": 0, "iter_decode_with_beam": 1}' \
-    --eval-bleu-detok moses --eval-bleu-remove-bpe --eval-bleu-print-samples \
+    --eval-bleu-detok moses --eval-bleu-remove-bpe --eval-bleu-print-samples --skip-invalid-size-inputs-valid-test \
     --fixed-validation-seed 7 \
     --best-checkpoint-metric bleu --maximize-best-checkpoint-metric   \
     --keep-best-checkpoints 5 --save-dir ${checkpoint_dir} \
