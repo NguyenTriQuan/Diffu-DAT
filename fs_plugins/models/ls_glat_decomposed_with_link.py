@@ -37,6 +37,7 @@ from .ls_transformer import LSTransformerModel, LSFSTransformerDecoderLayer, LST
 from .ls_nat_decoder import LSNATransformerDecoder
 
 try:
+    print('using lightseq')
     from lightseq.training.ops.pytorch.transformer_embedding_layer import (
     LSTransformerEmbeddingLayer,
     )
@@ -44,7 +45,8 @@ try:
         LSTransformerEncoderLayer,
     )
 except ModuleNotFoundError as err:
-    pass
+    print('not using lightseq')
+    # pass
 
 from .glat_decomposed_with_link import GlatDecomposedLink, GlatLinkDecoder, torch_seed
 
