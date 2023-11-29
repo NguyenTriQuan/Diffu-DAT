@@ -509,7 +509,7 @@ class GlatDecomposedLink(FairseqNATModel):
 
         return decoder_out._replace(
             output_tokens=output_tokens,
-            output_scores=torch.full(output_tokens.size(), 1.0),
+            output_scores=torch.full(output_tokens.size(), 1.0, device=output_tokens.device),
             attn=None,
             history=history,
         )

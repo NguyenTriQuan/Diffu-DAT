@@ -235,9 +235,9 @@ class IterativeRefinementGenerator(object):
                 terminated.fill_(1)
 
             # collect finalized sentences
-            print(terminated.device, sent_idxs.device, decoder_out.output_tokens.device, decoder_out.output_scores)
-            sent_idxs = sent_idxs.to(terminated.device)
-            decoder_out.output_scores = decoder_out.output_scores.to(terminated.device)
+            # print(terminated.device, sent_idxs.device, decoder_out.output_tokens.device, decoder_out.output_scores.device)
+            sent_idxs.to(terminated.device)
+            # decoder_out.output_scores.to(terminated.device)
             finalized_idxs = sent_idxs[terminated]
             finalized_tokens = decoder_out.output_tokens[terminated]
             finalized_scores = decoder_out.output_scores[terminated]
