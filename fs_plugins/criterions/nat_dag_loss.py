@@ -218,13 +218,17 @@ class NATDAGLoss(FairseqCriterion):
             #     word_ins_out, match = dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
             match = match.transpose(1, 2)
 
-            if self.cfg.torch_dag_best_alignment:
-                if model.args.max_transition_length != -1:
-                    links = model.restore_valid_links(links)
-                path = torch_dag_best_alignment(match, links, output_length, target_length)
-            else:
-                assert model.args.max_transition_length != -1, "cuda dag best alignment does not support max_transition_length=-1. You can use a very large number such as 99999"
-                path = dag_best_alignment(match, links, output_length, target_length) # batch * prelen
+            if model.args.max_transition_length != -1:
+                links = model.restore_valid_links(links)
+            path = torch_dag_best_alignment(match, links, output_length, target_length)
+            
+            # if self.cfg.torch_dag_best_alignment:
+            #     if model.args.max_transition_length != -1:
+            #         links = model.restore_valid_links(links)
+            #     path = torch_dag_best_alignment(match, links, output_length, target_length)
+            # else:
+            #     assert model.args.max_transition_length != -1, "cuda dag best alignment does not support max_transition_length=-1. You can use a very large number such as 99999"
+            #     path = dag_best_alignment(match, links, output_length, target_length) # batch * prelen
 
             predict_align_mask = path >= 0
             matchmask = torch.zeros(batch_size, tarlen + 1, prelen, device=match.device, dtype=torch.bool).scatter_(1, path.unsqueeze(1) + 1, 1)[:, 1:]
