@@ -265,8 +265,9 @@ def train(
     if cfg.common.tpu:
         itr = utils.tpu_data_loader(itr)
 
+    valid_subsets = cfg.dataset.valid_subset.split(",")
     valid_losses = validate(cfg, trainer, task, epoch_itr, valid_subsets)
-    
+
     progress = progress_bar.progress_bar(
         itr,
         log_format=cfg.common.log_format,
