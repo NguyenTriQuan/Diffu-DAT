@@ -50,6 +50,8 @@ class NATDAGLoss(FairseqCriterion):
         super().__init__(task)
         self.cfg = cfg
         self.cfg.torch_dag_logsoftmax_gather = True
+        self.cfg.torch_dag_best_alignment = True
+        self.cfg.torch_dag_loss = True
         assert cfg.label_smoothing == 0, "DAG does not support label smoothing"
         self.glance_strategy = cfg.glance_strategy
         self._glat_p_anneal_params = parse_anneal_argument(cfg.glat_p)
