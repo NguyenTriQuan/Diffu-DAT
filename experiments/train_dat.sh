@@ -2,10 +2,10 @@ data_dir=data-bin/iwslt14.tokenized.de-en
 checkpoint_dir=/cm/archive/quannt40/Diffu-NAR/checkpoints
 
 
-fairseq-train ${data_dir}  \
+CUDA_VISIBLE_DEVICES=0 fairseq-train ${data_dir}  \
     --user-dir fs_plugins \
     --task translation_lev_modified  --noise full_mask \
-    --arch glat_decomposed_link_base \
+    --arch glat_decomposed_link_small \
     --decoder-learned-pos --encoder-learned-pos \
     --share-all-embeddings --activation-fn gelu \
     --apply-bert-init \
