@@ -22,7 +22,7 @@ import torch
 from torch import nn, Tensor
 from torch.nn import functional as F
 from torch.autograd import Function
-from torch.utils.cpp_extension import load
+# from torch.utils.cpp_extension import load
 from torch.utils.checkpoint import checkpoint
 from torch import jit
 from typing import Any, Dict, List, Optional, Tuple
@@ -30,207 +30,207 @@ from typing import Any, Dict, List, Optional, Tuple
 
 ####################### Cuda Version of DAG Oerations ####################
 
-module_path = os.path.dirname(__file__)
-dag_kernel = None
+# module_path = os.path.dirname(__file__)
+# dag_kernel = None
 
-def get_dag_kernel():
-    global dag_kernel
-    if not torch.cuda.is_available():
-        raise RuntimeError("You need GPU to use the custom cuda operations")
-    if dag_kernel is not None:
-        return dag_kernel
-    else:
-        print("Start compiling cuda operations for DA-Transformer...(It usually takes a few minutes for the first time running.)", file=sys.stderr, flush=True)
+# def get_dag_kernel():
+#     global dag_kernel
+#     if not torch.cuda.is_available():
+#         raise RuntimeError("You need GPU to use the custom cuda operations")
+#     if dag_kernel is not None:
+#         return dag_kernel
+#     else:
+#         print("Start compiling cuda operations for DA-Transformer...(It usually takes a few minutes for the first time running.)", file=sys.stderr, flush=True)
 
-        if int(torch.version.cuda.split(".")[0]) < 11:
-            extra_include_paths = [os.path.join(module_path, "../../cub")]
-        else:
-            extra_include_paths = None
+#         if int(torch.version.cuda.split(".")[0]) < 11:
+#             extra_include_paths = [os.path.join(module_path, "../../cub")]
+#         else:
+#             extra_include_paths = None
 
-        dag_kernel = load(
-            "dag_loss_fn",
-            sources=[
-                os.path.join(module_path, "dag_loss.cpp"),
-                os.path.join(module_path, "dag_loss.cu"),
-                os.path.join(module_path, "dag_best_alignment.cu"),
-                os.path.join(module_path, "logsoftmax_gather.cu"),
-            ],
-            extra_cflags=['-DOF_SOFTMAX_USE_FAST_MATH', '-O3'],
-            extra_cuda_cflags=['-DOF_SOFTMAX_USE_FAST_MATH', '-O3'],
-            extra_include_paths=extra_include_paths,
-        )
-        print("Cuda operations compiled", file=sys.stderr, flush=True)
-        return dag_kernel
+#         dag_kernel = load(
+#             "dag_loss_fn",
+#             sources=[
+#                 os.path.join(module_path, "dag_loss.cpp"),
+#                 os.path.join(module_path, "dag_loss.cu"),
+#                 os.path.join(module_path, "dag_best_alignment.cu"),
+#                 os.path.join(module_path, "logsoftmax_gather.cu"),
+#             ],
+#             extra_cflags=['-DOF_SOFTMAX_USE_FAST_MATH', '-O3'],
+#             extra_cuda_cflags=['-DOF_SOFTMAX_USE_FAST_MATH', '-O3'],
+#             extra_include_paths=extra_include_paths,
+#         )
+#         print("Cuda operations compiled", file=sys.stderr, flush=True)
+#         return dag_kernel
 
-class DagLossFunc(Function):
-    config = 1
-    config1 = 2
-    config2 = 2
+# class DagLossFunc(Function):
+#     config = 1
+#     config1 = 2
+#     config2 = 2
 
-    @staticmethod
-    def forward(
-        ctx,
-        match_all, # bsz * tarlen * prelen
-        links, # bsz * prelen * translen
-        output_length, # bsz
-        target_length, # bsz
-    ):
-        r"""
-        Function to calculate the dag loss.
-        Input:
-            match_all (torch.FloatTensor or torch.HalfTensor):
-                Shape: [batch_size, max_target_length, max_output_length]
-                match_all[b, i, j] represents -log P(y_i| v_j), the probability of predicting the i-th token in the reference
-                based on the j-th vertex.
-                (Note: float32 are preferred; float16 may cause precision problem)
-            links (torch.FloatTensor or torch.HalfTensor):
-                Shape: [batch_size, max_output_length, max_transition_length]
-                links[b, i, j] represents the transition probability from the i-th vertex to **the (i+j)-th vertex**.
-                (Note: this parameter is different from the torch version)
-            output_length (torch.LongTensor):
-                Shape: [batch_size]
-                output_length should be the graph size, the vertices (index >= graph size) are ignored
-            target_length (torch.LongTensor):
-                Shape: [batch_size]
-                target_length is the reference length, the tokens (index >= target length) are ignored
+#     @staticmethod
+#     def forward(
+#         ctx,
+#         match_all, # bsz * tarlen * prelen
+#         links, # bsz * prelen * translen
+#         output_length, # bsz
+#         target_length, # bsz
+#     ):
+#         r"""
+#         Function to calculate the dag loss.
+#         Input:
+#             match_all (torch.FloatTensor or torch.HalfTensor):
+#                 Shape: [batch_size, max_target_length, max_output_length]
+#                 match_all[b, i, j] represents -log P(y_i| v_j), the probability of predicting the i-th token in the reference
+#                 based on the j-th vertex.
+#                 (Note: float32 are preferred; float16 may cause precision problem)
+#             links (torch.FloatTensor or torch.HalfTensor):
+#                 Shape: [batch_size, max_output_length, max_transition_length]
+#                 links[b, i, j] represents the transition probability from the i-th vertex to **the (i+j)-th vertex**.
+#                 (Note: this parameter is different from the torch version)
+#             output_length (torch.LongTensor):
+#                 Shape: [batch_size]
+#                 output_length should be the graph size, the vertices (index >= graph size) are ignored
+#             target_length (torch.LongTensor):
+#                 Shape: [batch_size]
+#                 target_length is the reference length, the tokens (index >= target length) are ignored
 
-        Output (torch.FloatTensor or torch.HalfTensor):
-            Shape: [batch_size]
-            the loss of each sample
-        """
-        require_gradient = ctx.needs_input_grad[0] or ctx.needs_input_grad[1]
-        match_all = match_all.contiguous()
-        links = links.contiguous()
-        alpha, beta = get_dag_kernel().dag_loss(match_all, links, output_length, target_length, require_gradient, DagLossFunc.config) # bsz * prelen * tarlen
+#         Output (torch.FloatTensor or torch.HalfTensor):
+#             Shape: [batch_size]
+#             the loss of each sample
+#         """
+#         require_gradient = ctx.needs_input_grad[0] or ctx.needs_input_grad[1]
+#         match_all = match_all.contiguous()
+#         links = links.contiguous()
+#         alpha, beta = get_dag_kernel().dag_loss(match_all, links, output_length, target_length, require_gradient, DagLossFunc.config) # bsz * prelen * tarlen
 
-        if require_gradient:
-            res = beta[:, 0, 0].clone()
-        else:
-            res = alpha[range(alpha.shape[0]), target_length - 1, output_length - 1]
-        ctx.save_for_backward(alpha, beta, match_all, links, output_length, target_length)
-        return res
+#         if require_gradient:
+#             res = beta[:, 0, 0].clone()
+#         else:
+#             res = alpha[range(alpha.shape[0]), target_length - 1, output_length - 1]
+#         ctx.save_for_backward(alpha, beta, match_all, links, output_length, target_length)
+#         return res
 
-    @staticmethod
-    def backward(ctx, grad_output):
-        alpha, beta, match_all, links, output_length, target_length = ctx.saved_tensors
-        if ctx.needs_input_grad[0] or ctx.needs_input_grad[1]:
-            grad_match_all, grad_links = get_dag_kernel().dag_loss_backward(grad_output, alpha, beta, match_all, links, output_length, target_length, DagLossFunc.config1, DagLossFunc.config2)
-            return grad_match_all, grad_links, None, None
-        else:
-            return None, None, None, None
+#     @staticmethod
+#     def backward(ctx, grad_output):
+#         alpha, beta, match_all, links, output_length, target_length = ctx.saved_tensors
+#         if ctx.needs_input_grad[0] or ctx.needs_input_grad[1]:
+#             grad_match_all, grad_links = get_dag_kernel().dag_loss_backward(grad_output, alpha, beta, match_all, links, output_length, target_length, DagLossFunc.config1, DagLossFunc.config2)
+#             return grad_match_all, grad_links, None, None
+#         else:
+#             return None, None, None, None
 
-dag_loss = DagLossFunc.apply
+# dag_loss = DagLossFunc.apply
 
-class DagBestAlignmentFunc(Function):
-    config = 1
+# class DagBestAlignmentFunc(Function):
+#     config = 1
 
-    @staticmethod
-    def forward(
-        ctx,
-        match_all, # bsz * tarlen * prelen
-        links, # bsz * prelen * translen
-        output_length, # bsz
-        target_length, # bsz
-    ):
-        r"""
-        Function to obtain the alignment between prediction and reference
-        Input:
-            match_all (torch.FloatTensor or torch.HalfTensor):
-                Shape: [batch_size, max_target_length, max_output_length]
-                match_all[b, i, j] represents -log P(y_i| v_j), the probability of predicting the i-th token in the reference
-                based on the j-th vertex.
-                (Note: float32 are preferred; float16 may cause precision problem)
-            links (torch.FloatTensor or torch.HalfTensor):
-                Shape: [batch_size, max_output_length, max_transition_length]
-                links[b, i, j] represents the transition probability from the i-th vertex to **the (i+j)-th vertex**.
-                (Note: this parameter is different from the torch version)
-            output_length (torch.LongTensor):
-                Shape: [batch_size]
-                output_length should be the graph size, the vertices (index >= graph size) are ignored
-            target_length (torch.LongTensor):
-                Shape: [batch_size]
-                target_length is the reference length, the tokens (index >= target length) are ignored
+#     @staticmethod
+#     def forward(
+#         ctx,
+#         match_all, # bsz * tarlen * prelen
+#         links, # bsz * prelen * translen
+#         output_length, # bsz
+#         target_length, # bsz
+#     ):
+#         r"""
+#         Function to obtain the alignment between prediction and reference
+#         Input:
+#             match_all (torch.FloatTensor or torch.HalfTensor):
+#                 Shape: [batch_size, max_target_length, max_output_length]
+#                 match_all[b, i, j] represents -log P(y_i| v_j), the probability of predicting the i-th token in the reference
+#                 based on the j-th vertex.
+#                 (Note: float32 are preferred; float16 may cause precision problem)
+#             links (torch.FloatTensor or torch.HalfTensor):
+#                 Shape: [batch_size, max_output_length, max_transition_length]
+#                 links[b, i, j] represents the transition probability from the i-th vertex to **the (i+j)-th vertex**.
+#                 (Note: this parameter is different from the torch version)
+#             output_length (torch.LongTensor):
+#                 Shape: [batch_size]
+#                 output_length should be the graph size, the vertices (index >= graph size) are ignored
+#             target_length (torch.LongTensor):
+#                 Shape: [batch_size]
+#                 target_length is the reference length, the tokens (index >= target length) are ignored
 
-        Output (torch.LongTensor):
-            Shape: [batch_size, max_output_length]
-            if output[b, i]>=0, it represents the index of target token aligned with the i-th vertex
-            otherwise, output[b, i] = -1, it represents the i-th vertex is not aligned with any target token
-        """
-        match_all = match_all.contiguous()
-        links = links.contiguous()
-        alpha, path = get_dag_kernel().dag_best_alignment(match_all, links, output_length, target_length, DagBestAlignmentFunc.config) # bsz * prelen * tarlen
-        path = path.to(torch.long)
-        ctx.mark_non_differentiable(path)
-        return path
+#         Output (torch.LongTensor):
+#             Shape: [batch_size, max_output_length]
+#             if output[b, i]>=0, it represents the index of target token aligned with the i-th vertex
+#             otherwise, output[b, i] = -1, it represents the i-th vertex is not aligned with any target token
+#         """
+#         match_all = match_all.contiguous()
+#         links = links.contiguous()
+#         alpha, path = get_dag_kernel().dag_best_alignment(match_all, links, output_length, target_length, DagBestAlignmentFunc.config) # bsz * prelen * tarlen
+#         path = path.to(torch.long)
+#         ctx.mark_non_differentiable(path)
+#         return path
 
-    @staticmethod
-    def backward(ctx, grad_output):
-        assert False, "no backward function for best alignment"
+#     @staticmethod
+#     def backward(ctx, grad_output):
+#         assert False, "no backward function for best alignment"
 
-dag_best_alignment = DagBestAlignmentFunc.apply
+# dag_best_alignment = DagBestAlignmentFunc.apply
 
-class DagLogsoftmaxGatherFunc(Function):
+# class DagLogsoftmaxGatherFunc(Function):
 
-    @staticmethod
-    def forward(
-        ctx,
-        word_ins_out, # bsz * prelen * vocabsize
-        select_idx # bsz * prelen * slen
-    ):
-        r"""
-        This function is equivalent to the below codes:
+#     @staticmethod
+#     def forward(
+#         ctx,
+#         word_ins_out, # bsz * prelen * vocabsize
+#         select_idx # bsz * prelen * slen
+#     ):
+#         r"""
+#         This function is equivalent to the below codes:
 
-            res = word_ins_out.log_softmax(dim=-1, dtype=torch.float).gather(-1, select_idx)
+#             res = word_ins_out.log_softmax(dim=-1, dtype=torch.float).gather(-1, select_idx)
 
-        Note: to reduce memory usage, word_ins_out is modified in place for storing backward tensors.
-        DO NOT use word_ins_out after this function.
-        If you do not like the side effect, please use the torch version instead
+#         Note: to reduce memory usage, word_ins_out is modified in place for storing backward tensors.
+#         DO NOT use word_ins_out after this function.
+#         If you do not like the side effect, please use the torch version instead
 
-        Input:
-            word_ins_out (torch.FloatTensor or torch.HalfTensor):
-                Shape: [batch_size, max_output_length, vocab_size]
-                the unnormalized logits
-            select_idx (torch.LongTensor):
-                Shape: [batch_size, max_output_length, select_id_size]
-                index in gather function
+#         Input:
+#             word_ins_out (torch.FloatTensor or torch.HalfTensor):
+#                 Shape: [batch_size, max_output_length, vocab_size]
+#                 the unnormalized logits
+#             select_idx (torch.LongTensor):
+#                 Shape: [batch_size, max_output_length, select_id_size]
+#                 index in gather function
 
-        Output:
-            modified_word_ins_out (torch.FloatTensor or torch.HalfTensor):
-                Shape: [batch_size, max_output_length, vocab_size]
-                modified word_ins_out, do not use it
+#         Output:
+#             modified_word_ins_out (torch.FloatTensor or torch.HalfTensor):
+#                 Shape: [batch_size, max_output_length, vocab_size]
+#                 modified word_ins_out, do not use it
 
-            selected_result (torch.FloatTensor):
-                Shape: [batch_size, max_output_length, select_id_size]
-        """
-        require_gradient = ctx.needs_input_grad[0]
-        selected_result = get_dag_kernel().logsoftmax_gather(word_ins_out, select_idx, require_gradient)
-        # Note: the cuda kernel will modify word_ins_out and then reuse it in backward
-        ctx.mark_dirty(word_ins_out)
-        ctx.set_materialize_grads(False)
+#             selected_result (torch.FloatTensor):
+#                 Shape: [batch_size, max_output_length, select_id_size]
+#         """
+#         require_gradient = ctx.needs_input_grad[0]
+#         selected_result = get_dag_kernel().logsoftmax_gather(word_ins_out, select_idx, require_gradient)
+#         # Note: the cuda kernel will modify word_ins_out and then reuse it in backward
+#         ctx.mark_dirty(word_ins_out)
+#         ctx.set_materialize_grads(False)
 
-        if require_gradient:
-            ctx.save_for_backward(word_ins_out, select_idx)
-            ctx.has_backward = False
-        return word_ins_out, selected_result # bsz * prelen * slen
+#         if require_gradient:
+#             ctx.save_for_backward(word_ins_out, select_idx)
+#             ctx.has_backward = False
+#         return word_ins_out, selected_result # bsz * prelen * slen
 
-    @staticmethod
-    def backward(ctx, grad_word_ins_out, grad_output):
-        if not ctx.needs_input_grad[0]:
-            return None, None
-        assert grad_word_ins_out is None, "Cannot reuse word_ins_out after logsoftmax_gather"
-        if grad_output is None:
-            return None, None
+#     @staticmethod
+#     def backward(ctx, grad_word_ins_out, grad_output):
+#         if not ctx.needs_input_grad[0]:
+#             return None, None
+#         assert grad_word_ins_out is None, "Cannot reuse word_ins_out after logsoftmax_gather"
+#         if grad_output is None:
+#             return None, None
 
-        assert not ctx.has_backward, "Cannot backward twice in logsoftmax_gather"
-        ctx.has_backward = True
+#         assert not ctx.has_backward, "Cannot backward twice in logsoftmax_gather"
+#         ctx.has_backward = True
 
-        grad_input, selected_idx = ctx.saved_tensors
-        grad_input.mul_(grad_output.sum(-1, keepdim=True).neg_().to(grad_input.dtype))
-        grad_input.scatter_add_(-1, selected_idx, grad_output.to(grad_input.dtype))
+#         grad_input, selected_idx = ctx.saved_tensors
+#         grad_input.mul_(grad_output.sum(-1, keepdim=True).neg_().to(grad_input.dtype))
+#         grad_input.scatter_add_(-1, selected_idx, grad_output.to(grad_input.dtype))
 
-        return grad_input, None
+#         return grad_input, None
 
-dag_logsoftmax_gather_inplace = DagLogsoftmaxGatherFunc.apply
+# dag_logsoftmax_gather_inplace = DagLogsoftmaxGatherFunc.apply
 
 ####################### Torch Version of DAG Oerations ####################
 

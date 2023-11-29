@@ -28,7 +28,8 @@ import torch.nn.functional as F
 from fairseq import metrics, utils
 from fairseq.criterions import FairseqCriterion, register_criterion
 from torch.autograd import Function
-from ..custom_ops import dag_loss, dag_best_alignment, dag_logsoftmax_gather_inplace, torch_dag_loss, torch_dag_best_alignment, torch_dag_logsoftmax_gather_inplace
+# from ..custom_ops import dag_loss, dag_best_alignment, dag_logsoftmax_gather_inplace, torch_dag_loss, torch_dag_best_alignment, torch_dag_logsoftmax_gather_inplace
+from ..custom_ops import torch_dag_loss, torch_dag_best_alignment, torch_dag_logsoftmax_gather_inplace
 
 from .utilities import parse_anneal_argument, get_anneal_value
 
