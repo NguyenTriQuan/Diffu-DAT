@@ -21,7 +21,7 @@ from torch.autograd import Function
 from ..custom_ops import torch_dag_best_alignment, torch_dag_logsoftmax_gather_inplace
 
 from .utilities import parse_anneal_argument, get_anneal_value
-from .pass_prob import DPFunc
+# from .pass_prob import DPFunc
 import time
 logger = logging.getLogger(__name__)
 
