@@ -123,10 +123,12 @@ class NATDAGLoss(FairseqCriterion):
         output_length = output_masks.sum(dim=-1)
         target_length = target_masks.sum(dim=-1)
 
-        if self.cfg.torch_dag_logsoftmax_gather:
-            outputs, match_all = torch_dag_logsoftmax_gather_inplace(outputs, targets.unsqueeze(1).expand(-1, prelen, -1))
-        else:
-            outputs, match_all = dag_logsoftmax_gather_inplace(outputs, targets.unsqueeze(1).expand(-1, prelen, -1))
+        # if self.cfg.torch_dag_logsoftmax_gather:
+        #     outputs, match_all = torch_dag_logsoftmax_gather_inplace(outputs, targets.unsqueeze(1).expand(-1, prelen, -1))
+        # else:
+        #     outputs, match_all = dag_logsoftmax_gather_inplace(outputs, targets.unsqueeze(1).expand(-1, prelen, -1))
+        outputs, match_all = torch_dag_logsoftmax_gather_inplace(outputs, targets.unsqueeze(1).expand(-1, prelen, -1))
+
         match_all = match_all.transpose(1, 2)
 
         if matchmask is not None and not self.cfg.no_force_emit:
@@ -209,10 +211,11 @@ class NATDAGLoss(FairseqCriterion):
             output_length = prev_output_tokens.ne(model.pad).sum(1)
 
             pred_tokens = word_ins_out.argmax(-1)
-            if self.cfg.torch_dag_logsoftmax_gather:
-                word_ins_out, match = torch_dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
-            else:
-                word_ins_out, match = dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
+            word_ins_out, match = torch_dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
+            # if self.cfg.torch_dag_logsoftmax_gather:
+            #     word_ins_out, match = torch_dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
+            # else:
+            #     word_ins_out, match = dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
             match = match.transpose(1, 2)
 
             if self.cfg.torch_dag_best_alignment:
