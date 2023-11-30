@@ -4,7 +4,7 @@ arch=ls_glat_decomposed_link_small
 checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints/$data_name"_"$arch
 
 
-CUDA_VISIBLE_DEVICES=4 fairseq-train ${data_dir}  \
+CUDA_VISIBLE_DEVICES=5 fairseq-train ${data_dir}  \
     --user-dir fs_plugins \
     --task translation_lev_modified  --noise full_mask \
     --arch ${arch} \
