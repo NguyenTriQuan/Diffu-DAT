@@ -1,6 +1,6 @@
 data_name=iwslt14
 data_dir=data-bin/iwslt14.tokenized.de-en
-arch=ls_glat_decomposed_link_small
+arch=glat_decomposed_link_small
 checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints/$data_name"_"$arch
 
 
