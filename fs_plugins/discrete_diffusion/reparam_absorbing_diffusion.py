@@ -3,14 +3,14 @@ import numpy as np
 import torch
 import torch.distributions as dists
 import torch.nn.functional as F
-# from utils import mean_ds
-from discrete_diffusion_base import DiscreteDiffusion
-def mean_ds(x, dim=None):
-    return (
-        x.float().mean().type_as(x)
-        if dim is None
-        else x.float().mean(dim).type_as(x)
-    )
+from discrete_diffusion.utils import mean_ds
+from discrete_diffusion.discrete_diffusion_base import DiscreteDiffusion
+# def mean_ds(x, dim=None):
+#     return (
+#         x.float().mean().type_as(x)
+#         if dim is None
+#         else x.float().mean(dim).type_as(x)
+#     )
 
 class ReparamAbsorbingDiffusion(DiscreteDiffusion):
     def __init__(
