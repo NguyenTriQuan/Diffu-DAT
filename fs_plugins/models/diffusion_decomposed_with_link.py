@@ -60,7 +60,7 @@ def logsumexp(x: Tensor, dim: int) -> Tensor:
     s = (x - m.masked_fill_(mask, 0).unsqueeze(dim=dim)).exp().sum(dim=dim)
     return s.masked_fill_(mask, 1).log() + m.masked_fill_(mask, -float('inf'))
 
-@register_model("glat_decomposed_link")
+@register_model("diffusion_decomposed_link")
 class GlatDecomposedLink(FairseqNATModel):
 
     def __init__(self, args, encoder, decoder):
@@ -560,7 +560,7 @@ class GlatLinkDecoder(NATransformerDecoder):
         pass
 
 @register_model_architecture(
-    "glat_decomposed_link", "glat_decomposed_link_6e6d512"
+    "diffusion_decomposed_link", "diffusion_decomposed_link_6e6d512"
 )
 def base_architecture(args):
     args.encoder_embed_path = getattr(args, "encoder_embed_path", None)
@@ -607,13 +607,13 @@ def base_architecture(args):
     args.src_embedding_copy = getattr(args, "src_embedding_copy", False)
 
 @register_model_architecture(
-    "glat_decomposed_link", "glat_decomposed_link_base"
+    "diffusion_decomposed_link", "diffusion_decomposed_link_base"
 )
 def base_architecture2(args):
     base_architecture(args)
 
 @register_model_architecture(
-    "glat_decomposed_link", "glat_decomposed_link_6e6d512_"
+    "diffusion_decomposed_link", "diffusion_decomposed_link_6e6d512_"
 )
 def small_architecture(args):
     args.encoder_embed_path = getattr(args, "encoder_embed_path", None)
@@ -660,7 +660,7 @@ def small_architecture(args):
     args.src_embedding_copy = getattr(args, "src_embedding_copy", False)
 
 @register_model_architecture(
-    "glat_decomposed_link", "glat_decomposed_link_small"
+    "diffusion_decomposed_link", "diffusion_decomposed_link_small"
 )
 def small_architecture2(args):
     small_architecture(args)
