@@ -1,6 +1,6 @@
 data_name=iwslt14
 data_dir=data-bin/iwslt14.tokenized.de-en
-arch=glat_decomposed_link_small
+arch=glat_decomposed_link_base
 checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints/$data_name"_"$arch
 
 
@@ -20,12 +20,12 @@ CUDA_VISIBLE_DEVICES=5 fairseq-train ${data_dir}  \
     --label-smoothing 0.0 --weight-decay 0.01 --dropout 0.1 \
     --lr-scheduler inverse_sqrt  --warmup-updates 10000   \
     --clip-norm 0.1 --lr 0.0005 --warmup-init-lr '1e-07' --stop-min-lr '1e-09' \
-    --max-tokens 4096  --update-freq 1 --grouped-shuffling \
+    --max-tokens 4096  --update-freq 4 --grouped-shuffling \
     --max-update 200000 --max-tokens-valid 4096 \
     --save-interval 1  --save-interval-updates 10000  \
     --seed 0 \
     --valid-subset test \
-    --validate-interval 1       --validate-interval-updates 10000 \
+    --validate-interval 1 --validate-interval-updates 10000 \
     --eval-bleu --eval-bleu-args '{"iter_decode_max_iter": 0, "iter_decode_with_beam": 1}' \
     --eval-bleu-detok moses --eval-bleu-remove-bpe --eval-bleu-print-samples --skip-invalid-size-inputs-valid-test \
     --fixed-validation-seed 7 \
