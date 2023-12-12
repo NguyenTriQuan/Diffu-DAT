@@ -2,7 +2,7 @@ import math
 import numpy as np
 import torch
 import torch.nn as nn
-from utils import (
+from fs_plugins.discrete_diffusion.utils import (
     topk_masking
 )
 
