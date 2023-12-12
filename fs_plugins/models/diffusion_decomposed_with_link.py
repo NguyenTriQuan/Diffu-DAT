@@ -33,8 +33,8 @@ from fairseq.modules import (
 from fairseq.modules.transformer_sentence_encoder import init_bert_params
 from fairseq.models.nat.nonautoregressive_transformer import NATransformerDecoder
 from contextlib import contextmanager
-# from fs_plugins.discrete_diffusion.reparam_absorbing_diffusion import ReparamAbsorbingDiffusion
-from ..discrete_diffusion.reparam_absorbing_diffusion import ReparamAbsorbingDiffusion
+from fs_plugins.discrete_diffusion.reparam_absorbing_diffusion import ReparamAbsorbingDiffusion
+# from ..discrete_diffusion.reparam_absorbing_diffusion import ReparamAbsorbingDiffusion
 from time_sampler import UniformSampler
 
 logger = logging.getLogger(__name__)
