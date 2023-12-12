@@ -35,7 +35,7 @@ from fairseq.models.nat.nonautoregressive_transformer import NATransformerDecode
 from contextlib import contextmanager
 from fs_plugins.discrete_diffusion.reparam_absorbing_diffusion import ReparamAbsorbingDiffusion
 # from ..discrete_diffusion.reparam_absorbing_diffusion import ReparamAbsorbingDiffusion
-from time_sampler import UniformSampler
+from fs_plugins.time_sampler import UniformSampler
 
 logger = logging.getLogger(__name__)
 
