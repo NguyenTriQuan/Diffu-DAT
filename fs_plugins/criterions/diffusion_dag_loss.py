@@ -44,7 +44,7 @@ if SHOW_MEMORY_USE:
     gpu_tracker = MemTracker()
 ########################################
 
-@register_criterion("nat_dag_loss")
+@register_criterion("diffusion_dag_loss")
 class DiffuDAGLoss(FairseqCriterion):
 
     def __init__(self, cfg, task):
