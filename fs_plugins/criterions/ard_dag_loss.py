@@ -288,7 +288,7 @@ class NATDAGLoss(FairseqCriterion):
         _losses = F.cross_entropy(ar_outputs.transpose(-1, -2), tgt_tokens, label_smoothing=0.1, reduce=False, ignore_index=1).mean(1)
         invalid_masks = _losses.isinf().logical_or(_losses.isnan())
         _losses.masked_fill_(invalid_masks, 0)
-        _losses = -_losses.mean()
+        _losses = _losses.mean()
 
         ar_losses = {"loss" : _losses, "name" : "ar-loss", "loss_nofactor" : _losses}
         ard_tgt = ar_outputs.argmax(-1)
