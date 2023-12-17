@@ -34,4 +34,4 @@ CUDA_VISIBLE_DEVICES=1 fairseq-train ${data_dir}  \
     --keep-best-checkpoints 5 --save-dir ${checkpoint_dir} \
     --keep-interval-updates 5 --keep-last-epochs 5 \
     --log-format 'simple' --log-interval 100 \
-    # --wandb-project Diffu-DAT
+    --wandb-project Diffu-DAT
