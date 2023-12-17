@@ -353,286 +353,289 @@ def torch_dag_best_alignment(match_all, links, output_length, target_length):
     return path
 
 def torch_dag_logsoftmax_gather_inplace(word_ins_out, select_idx):
-    r""" Fused operation of log_softmax and gather"""
+    r""" Fused operation of log_softmax and gather"""           
     logits = torch.log_softmax(word_ins_out, -1, dtype=torch.float32)
     match = logits.gather(dim=-1, index=select_idx)
     return word_ins_out, match
+
+def modified_kl_div(targets, outputs, dim=-1):
+    return -torch.sum(targets * torch.log(outputs), dim=dim)
 
 
 ####################### For Config Tuning ######################
 # The below codes are only used for testing
 ################################################################
 
-if __name__ == "__main__":
-    import numpy as np
-    import random
-    from collections import defaultdict
-    from itertools import product
-    import tqdm
+# if __name__ == "__main__":
+#     import numpy as np
+#     import random
+#     from collections import defaultdict
+#     from itertools import product
+#     import tqdm
 
-    def restore_valid_links(links):
-        # batch * prelen * trans_len
-        batch_size, prelen, translen = links.shape
-        valid_links_idx = torch.arange(prelen, dtype=torch.long, device=links.device).unsqueeze(1) + \
-                    torch.arange(translen, dtype=torch.long, device=links.device).unsqueeze(0) + 1
-        invalid_idx_mask = valid_links_idx >= prelen
-        valid_links_idx.masked_fill_(invalid_idx_mask, prelen)
-        res = torch.zeros(batch_size, prelen, prelen + 1, dtype=torch.float, device=links.device).fill_(float("-inf"))
-        res.scatter_(2, valid_links_idx.unsqueeze(0).expand(batch_size, -1, -1), links)
-        return res[:, :, :prelen]
+#     def restore_valid_links(links):
+#         # batch * prelen * trans_len
+#         batch_size, prelen, translen = links.shape
+#         valid_links_idx = torch.arange(prelen, dtype=torch.long, device=links.device).unsqueeze(1) + \
+#                     torch.arange(translen, dtype=torch.long, device=links.device).unsqueeze(0) + 1
+#         invalid_idx_mask = valid_links_idx >= prelen
+#         valid_links_idx.masked_fill_(invalid_idx_mask, prelen)
+#         res = torch.zeros(batch_size, prelen, prelen + 1, dtype=torch.float, device=links.device).fill_(float("-inf"))
+#         res.scatter_(2, valid_links_idx.unsqueeze(0).expand(batch_size, -1, -1), links)
+#         return res[:, :, :prelen]
 
-    def random_check_loss(bsz, prelen, tarlen, translen, config=1, config1=1, config2=1):
-        # print(bsz, prelen, tarlen, translen)
-        DagLossFunc.config = config
-        DagLossFunc.config1 = config1
-        DagLossFunc.config2 = config2
+#     def random_check_loss(bsz, prelen, tarlen, translen, config=1, config1=1, config2=1):
+#         # print(bsz, prelen, tarlen, translen)
+#         DagLossFunc.config = config
+#         DagLossFunc.config1 = config1
+#         DagLossFunc.config2 = config2
 
-        match_all = torch.rand(bsz, tarlen, prelen).cuda().requires_grad_()
-        links = torch.rand(bsz, prelen, translen).cuda().log_softmax(dim=-1).requires_grad_()
+#         match_all = torch.rand(bsz, tarlen, prelen).cuda().requires_grad_()
+#         links = torch.rand(bsz, prelen, translen).cuda().log_softmax(dim=-1).requires_grad_()
 
-        # easy case
-        output_length = torch.ones(bsz, dtype=torch.long).cuda() * prelen
-        target_length = torch.ones(bsz, dtype=torch.long).cuda() * tarlen
+#         # easy case
+#         output_length = torch.ones(bsz, dtype=torch.long).cuda() * prelen
+#         target_length = torch.ones(bsz, dtype=torch.long).cuda() * tarlen
 
-        output_length -= torch.randint(0, min(5, prelen), output_length.shape, device=output_length.device)
-        target_length -= torch.randint(0, min(5, tarlen), target_length.shape, device=target_length.device)
+#         output_length -= torch.randint(0, min(5, prelen), output_length.shape, device=output_length.device)
+#         target_length -= torch.randint(0, min(5, tarlen), target_length.shape, device=target_length.device)
 
-        import time
-        torch.cuda.synchronize()
-        start = time.time()
-        res = dag_loss(match_all, links, output_length, target_length)
-        torch.cuda.synchronize()
-        atime = time.time() - start
-        # print("cuda :", atime)
-        start = time.time()
-        res2 = torch_dag_loss(match_all, restore_valid_links(links), output_length, target_length)
-        torch.cuda.synchronize()
-        btime = time.time() - start
-        # print("torch:", btime)
-        assert torch.allclose(res, res2, rtol=1e-03, atol=1e-04)
+#         import time
+#         torch.cuda.synchronize()
+#         start = time.time()
+#         res = dag_loss(match_all, links, output_length, target_length)
+#         torch.cuda.synchronize()
+#         atime = time.time() - start
+#         # print("cuda :", atime)
+#         start = time.time()
+#         res2 = torch_dag_loss(match_all, restore_valid_links(links), output_length, target_length)
+#         torch.cuda.synchronize()
+#         btime = time.time() - start
+#         # print("torch:", btime)
+#         assert torch.allclose(res, res2, rtol=1e-03, atol=1e-04)
 
-        # return atime, btime
+#         # return atime, btime
 
-        start = time.time()
-        gA, gB = torch.autograd.grad(res.mean(), [match_all, links], retain_graph=True)
-        torch.cuda.synchronize()
-        ctime = time.time() - start
-        # print("cuda  grad:", ctime)
-        start = time.time()
-        rA, rB = torch.autograd.grad(res2.mean(), [match_all, links], retain_graph=True)
-        dtime = time.time() - start
-        # print("torch grad:", dtime)
+#         start = time.time()
+#         gA, gB = torch.autograd.grad(res.mean(), [match_all, links], retain_graph=True)
+#         torch.cuda.synchronize()
+#         ctime = time.time() - start
+#         # print("cuda  grad:", ctime)
+#         start = time.time()
+#         rA, rB = torch.autograd.grad(res2.mean(), [match_all, links], retain_graph=True)
+#         dtime = time.time() - start
+#         # print("torch grad:", dtime)
 
-        assert torch.allclose(gA, rA)
-        assert torch.allclose(gB, rB)
+#         assert torch.allclose(gA, rA)
+#         assert torch.allclose(gB, rB)
 
-        return atime, btime, ctime, dtime
+#         return atime, btime, ctime, dtime
 
-    @torch.no_grad()
-    def torch_check_best_alignemnt(alpha, path, match_all, links, output_length, target_length):
-        batch_size, tarlen, prelen = match_all.shape
+#     @torch.no_grad()
+#     def torch_check_best_alignemnt(alpha, path, match_all, links, output_length, target_length):
+#         batch_size, tarlen, prelen = match_all.shape
 
-        res = alpha[range(batch_size), target_length - 1, output_length - 1]
-        pos = torch.zeros(batch_size, device="cuda", dtype=torch.long)
-        tid = torch.zeros(batch_size, device="cuda", dtype=torch.long)
-        nowres = match_all[range(batch_size), tid, pos]
+#         res = alpha[range(batch_size), target_length - 1, output_length - 1]
+#         pos = torch.zeros(batch_size, device="cuda", dtype=torch.long)
+#         tid = torch.zeros(batch_size, device="cuda", dtype=torch.long)
+#         nowres = match_all[range(batch_size), tid, pos]
 
-        for i in range(1, prelen):
-            tid += (path[:, i] >= 0).int()
-            nextpos = (torch.ones_like(pos) * i).masked_fill(path[:, i] < 0, 0) + pos.masked_fill(path[:, i] >= 0, 0)
-            nowres += (links[range(batch_size), pos, (-pos + i - 1).clip(min=0)] + match_all[range(batch_size), tid, nextpos]) * (path[:, i] >= 0).float()
-            pos = nextpos
+#         for i in range(1, prelen):
+#             tid += (path[:, i] >= 0).int()
+#             nextpos = (torch.ones_like(pos) * i).masked_fill(path[:, i] < 0, 0) + pos.masked_fill(path[:, i] >= 0, 0)
+#             nowres += (links[range(batch_size), pos, (-pos + i - 1).clip(min=0)] + match_all[range(batch_size), tid, nextpos]) * (path[:, i] >= 0).float()
+#             pos = nextpos
 
-        return torch.allclose(res, nowres)
+#         return torch.allclose(res, nowres)
 
-    def random_check_align(bsz, prelen, tarlen, translen, config=1):
-        # print(bsz, prelen, tarlen, translen)
-        DagBestAlignmentFunc.config = config
+#     def random_check_align(bsz, prelen, tarlen, translen, config=1):
+#         # print(bsz, prelen, tarlen, translen)
+#         DagBestAlignmentFunc.config = config
 
-        match_all = torch.rand(bsz, tarlen, prelen).cuda().requires_grad_()
-        links = torch.rand(bsz, prelen, translen).cuda().log_softmax(dim=-1).requires_grad_()
+#         match_all = torch.rand(bsz, tarlen, prelen).cuda().requires_grad_()
+#         links = torch.rand(bsz, prelen, translen).cuda().log_softmax(dim=-1).requires_grad_()
 
-        # easy case
-        output_length = torch.ones(bsz, dtype=torch.long).cuda() * prelen
-        target_length = torch.ones(bsz, dtype=torch.long).cuda() * tarlen
+#         # easy case
+#         output_length = torch.ones(bsz, dtype=torch.long).cuda() * prelen
+#         target_length = torch.ones(bsz, dtype=torch.long).cuda() * tarlen
 
-        output_length -= torch.randint(0, min(5, prelen), output_length.shape, device=output_length.device)
-        target_length -= torch.randint(0, min(5, tarlen), target_length.shape, device=target_length.device)
+#         output_length -= torch.randint(0, min(5, prelen), output_length.shape, device=output_length.device)
+#         target_length -= torch.randint(0, min(5, tarlen), target_length.shape, device=target_length.device)
 
-        import time
-        torch.cuda.synchronize()
-        start = time.time()
-        alpha, path = get_dag_kernel().dag_best_alignment(match_all, links, output_length, target_length, DagBestAlignmentFunc.config)
-        res = alpha[range(bsz), target_length - 1, output_length - 1]
-        torch.cuda.synchronize()
-        atime = time.time() - start
-        # print("cuda :", atime)
-        start = time.time()
-        path2 = torch_dag_best_alignment(match_all, restore_valid_links(links), output_length, target_length)
-        torch.cuda.synchronize()
-        btime = time.time() - start
-        # print("torch:", btime)
-        res2 = __torch_max_loss(match_all, restore_valid_links(links), output_length, target_length)
+#         import time
+#         torch.cuda.synchronize()
+#         start = time.time()
+#         alpha, path = get_dag_kernel().dag_best_alignment(match_all, links, output_length, target_length, DagBestAlignmentFunc.config)
+#         res = alpha[range(bsz), target_length - 1, output_length - 1]
+#         torch.cuda.synchronize()
+#         atime = time.time() - start
+#         # print("cuda :", atime)
+#         start = time.time()
+#         path2 = torch_dag_best_alignment(match_all, restore_valid_links(links), output_length, target_length)
+#         torch.cuda.synchronize()
+#         btime = time.time() - start
+#         # print("torch:", btime)
+#         res2 = __torch_max_loss(match_all, restore_valid_links(links), output_length, target_length)
 
-        assert torch.allclose(res, res2, rtol=1e-03, atol=1e-04)
-        assert torch_check_best_alignemnt(alpha, path, match_all, links, output_length, target_length)
-        assert torch_check_best_alignemnt(alpha, path2, match_all, links, output_length, target_length)
+#         assert torch.allclose(res, res2, rtol=1e-03, atol=1e-04)
+#         assert torch_check_best_alignemnt(alpha, path, match_all, links, output_length, target_length)
+#         assert torch_check_best_alignemnt(alpha, path2, match_all, links, output_length, target_length)
 
-        return atime, btime
+#         return atime, btime
 
-    def random_check_gather(bsz, prelen, tarlen, vocabsize):
-        word_ins_out = torch.rand(bsz, prelen, vocabsize, dtype=torch.float16, device="cuda").requires_grad_()
-        select_idx = torch.randint(0, vocabsize - 1, (bsz, prelen, tarlen), device="cuda")
+#     def random_check_gather(bsz, prelen, tarlen, vocabsize):
+#         word_ins_out = torch.rand(bsz, prelen, vocabsize, dtype=torch.float16, device="cuda").requires_grad_()
+#         select_idx = torch.randint(0, vocabsize - 1, (bsz, prelen, tarlen), device="cuda")
 
-        import time
-        torch.cuda.synchronize()
-        start = time.time()
-        _, res = dag_logsoftmax_gather_inplace(word_ins_out.clone(), select_idx)
-        ga = torch.autograd.grad(res.sum() / res.shape[2], [word_ins_out], retain_graph=True)[0]
-        torch.cuda.synchronize()
-        atime = time.time() - start
-        # print("cuda :", atime)
-        start = time.time()
-        _, res2 = torch_dag_logsoftmax_gather_inplace(word_ins_out, select_idx)
-        ra = torch.autograd.grad(res2.sum() / res.shape[2], [word_ins_out], retain_graph=True)[0]
-        torch.cuda.synchronize()
-        btime = time.time() - start
-        # print("torch:", btime)
-        assert torch.allclose(res, res2, rtol=1e-3, atol=1e-4)
-        assert torch.allclose(ga, ra, rtol=1e-3, atol=1e-4)
+#         import time
+#         torch.cuda.synchronize()
+#         start = time.time()
+#         _, res = dag_logsoftmax_gather_inplace(word_ins_out.clone(), select_idx)
+#         ga = torch.autograd.grad(res.sum() / res.shape[2], [word_ins_out], retain_graph=True)[0]
+#         torch.cuda.synchronize()
+#         atime = time.time() - start
+#         # print("cuda :", atime)
+#         start = time.time()
+#         _, res2 = torch_dag_logsoftmax_gather_inplace(word_ins_out, select_idx)
+#         ra = torch.autograd.grad(res2.sum() / res.shape[2], [word_ins_out], retain_graph=True)[0]
+#         torch.cuda.synchronize()
+#         btime = time.time() - start
+#         # print("torch:", btime)
+#         assert torch.allclose(res, res2, rtol=1e-3, atol=1e-4)
+#         assert torch.allclose(ga, ra, rtol=1e-3, atol=1e-4)
 
-        return atime, btime
+#         return atime, btime
 
-    def tune_config(skip_forward=False, skip_backward=False, skip_align=False, skip_gather=False):
-        config_list = [1,2,3,4]
-        config1_list = [1,2]
-        config2_list = [1,2,3]
-        configalign_list = [1,2,3,4]
+#     def tune_config(skip_forward=False, skip_backward=False, skip_align=False, skip_gather=False):
+#         config_list = [1,2,3,4]
+#         config1_list = [1,2]
+#         config2_list = [1,2,3]
+#         configalign_list = [1,2,3,4]
 
-        forward_best = DagLossFunc.config
-        backward_best = (DagLossFunc.config1, DagLossFunc.config2)
-        align_best = DagBestAlignmentFunc.config
+#         forward_best = DagLossFunc.config
+#         backward_best = (DagLossFunc.config1, DagLossFunc.config2)
+#         align_best = DagBestAlignmentFunc.config
 
-        if not skip_forward:
-            print("########### Forward Tuning #############")
+#         if not skip_forward:
+#             print("########### Forward Tuning #############")
 
-            a_res, b_res = defaultdict(list), defaultdict(list)
-            for i in tqdm.tqdm(range(100)):
-                for config in config_list:
-                    SEED = i
-                    random.seed(SEED)
-                    np.random.seed(SEED)
-                    torch.manual_seed(SEED)
-                    torch.cuda.manual_seed(SEED)
+#             a_res, b_res = defaultdict(list), defaultdict(list)
+#             for i in tqdm.tqdm(range(100)):
+#                 for config in config_list:
+#                     SEED = i
+#                     random.seed(SEED)
+#                     np.random.seed(SEED)
+#                     torch.manual_seed(SEED)
+#                     torch.cuda.manual_seed(SEED)
 
-                    tarlen = random.randint(40, 60)
-                    bsz = 4096 // tarlen
-                    factor = 8
-                    # print(f"run {i}")
+#                     tarlen = random.randint(40, 60)
+#                     bsz = 4096 // tarlen
+#                     factor = 8
+#                     # print(f"run {i}")
 
-                    a, b, c, d = random_check_loss(bsz, tarlen * factor, tarlen, factor * 4, config=config)
-                    # a, b = random_check(1, 8, 4, 4)
-                    if i > 0:
-                        a_res[config].append(a)
-                        b_res[config].append(b)
+#                     a, b, c, d = random_check_loss(bsz, tarlen * factor, tarlen, factor * 4, config=config)
+#                     # a, b = random_check(1, 8, 4, 4)
+#                     if i > 0:
+#                         a_res[config].append(a)
+#                         b_res[config].append(b)
 
-            forward_res = []
-            for config in config_list:
-                forward_res.append(np.mean(b_res[config]) / np.mean(a_res[config]))
-                print(f"{config}: {np.mean(a_res[config]):.6f} {np.mean(b_res[config]):.6f} {forward_res[-1]:.2f}")
-            forward_best = config_list[np.argmax(forward_res)]
+#             forward_res = []
+#             for config in config_list:
+#                 forward_res.append(np.mean(b_res[config]) / np.mean(a_res[config]))
+#                 print(f"{config}: {np.mean(a_res[config]):.6f} {np.mean(b_res[config]):.6f} {forward_res[-1]:.2f}")
+#             forward_best = config_list[np.argmax(forward_res)]
 
-            print(f"Best Choice: {forward_best}")
-
-
-        if not skip_backward:
-            print("########### Backward Tuning #############")
-
-            c_res, d_res = defaultdict(list), defaultdict(list)
-            for i in tqdm.tqdm(range(50)):
-                for config1, config2 in product(config1_list, config2_list):
-                    SEED = i
-                    random.seed(SEED)
-                    np.random.seed(SEED)
-                    torch.manual_seed(SEED)
-                    torch.cuda.manual_seed(SEED)
+#             print(f"Best Choice: {forward_best}")
 
 
-                    tarlen = random.randint(40, 60)
-                    bsz = 4096 // tarlen
-                    factor = 8
+#         if not skip_backward:
+#             print("########### Backward Tuning #############")
 
-                    a, b, c, d = random_check_loss(bsz, tarlen * factor, tarlen, factor * 4, config=forward_best, config1=config1, config2=config2)
-                    # a, b = random_check(1, 8, 4, 4)
-                    if i > 0:
-                        c_res[(config1, config2)].append(c)
-                        d_res[(config1, config2)].append(d)
+#             c_res, d_res = defaultdict(list), defaultdict(list)
+#             for i in tqdm.tqdm(range(50)):
+#                 for config1, config2 in product(config1_list, config2_list):
+#                     SEED = i
+#                     random.seed(SEED)
+#                     np.random.seed(SEED)
+#                     torch.manual_seed(SEED)
+#                     torch.cuda.manual_seed(SEED)
 
-            backward_res = []
-            for config1, config2 in product(config1_list, config2_list):
-                backward_res.append(np.mean(d_res[(config1, config2)]) / np.mean(c_res[(config1, config2)]))
-                print(f"{config1, config2}: {np.mean(c_res[(config1, config2)]):.6f} {np.mean(d_res[(config1, config2)]):.6f} {backward_res[-1]:.2f}")
-            backward_best =  list(product(config1_list, config2_list))[np.argmax(backward_res)]
 
-            print(f"Best Choice: {backward_best}")
+#                     tarlen = random.randint(40, 60)
+#                     bsz = 4096 // tarlen
+#                     factor = 8
 
-        if not skip_align:
-            print("########### Align Tuning #############")
+#                     a, b, c, d = random_check_loss(bsz, tarlen * factor, tarlen, factor * 4, config=forward_best, config1=config1, config2=config2)
+#                     # a, b = random_check(1, 8, 4, 4)
+#                     if i > 0:
+#                         c_res[(config1, config2)].append(c)
+#                         d_res[(config1, config2)].append(d)
 
-            a_res, b_res = defaultdict(list), defaultdict(list)
-            for i in tqdm.tqdm(range(30)):
-                for config in configalign_list:
-                    SEED = i
-                    random.seed(SEED)
-                    np.random.seed(SEED)
-                    torch.manual_seed(SEED)
-                    torch.cuda.manual_seed(SEED)
+#             backward_res = []
+#             for config1, config2 in product(config1_list, config2_list):
+#                 backward_res.append(np.mean(d_res[(config1, config2)]) / np.mean(c_res[(config1, config2)]))
+#                 print(f"{config1, config2}: {np.mean(c_res[(config1, config2)]):.6f} {np.mean(d_res[(config1, config2)]):.6f} {backward_res[-1]:.2f}")
+#             backward_best =  list(product(config1_list, config2_list))[np.argmax(backward_res)]
 
-                    tarlen = random.randint(40, 60)
-                    bsz = 4096 // tarlen
-                    factor = 8
-                    # print(f"run {i}")
+#             print(f"Best Choice: {backward_best}")
 
-                    a, b = random_check_align(bsz, tarlen * factor, tarlen, factor * 4, config=config)
-                    # a, b = random_check(1, 8, 4, 4)
-                    if i > 0:
-                        a_res[config].append(a)
-                        b_res[config].append(b)
+#         if not skip_align:
+#             print("########### Align Tuning #############")
 
-            align_res = []
-            for config in configalign_list:
-                align_res.append(np.mean(b_res[config]) / np.mean(a_res[config]))
-                print(f"{config}: {np.mean(a_res[config]):.6f} {np.mean(b_res[config]):.6f} {align_res[-1]:.2f}")
-            align_best = configalign_list[np.argmax(align_res)]
+#             a_res, b_res = defaultdict(list), defaultdict(list)
+#             for i in tqdm.tqdm(range(30)):
+#                 for config in configalign_list:
+#                     SEED = i
+#                     random.seed(SEED)
+#                     np.random.seed(SEED)
+#                     torch.manual_seed(SEED)
+#                     torch.cuda.manual_seed(SEED)
 
-            print(f"Best Choice: {align_best}")
+#                     tarlen = random.randint(40, 60)
+#                     bsz = 4096 // tarlen
+#                     factor = 8
+#                     # print(f"run {i}")
 
-        if not skip_gather:
-            print("########### Test Gather #############")
+#                     a, b = random_check_align(bsz, tarlen * factor, tarlen, factor * 4, config=config)
+#                     # a, b = random_check(1, 8, 4, 4)
+#                     if i > 0:
+#                         a_res[config].append(a)
+#                         b_res[config].append(b)
 
-            a_res, b_res = defaultdict(list), defaultdict(list)
-            for i in tqdm.tqdm(range(100)):
-                SEED = i
-                random.seed(SEED)
-                np.random.seed(SEED)
-                torch.manual_seed(SEED)
-                torch.cuda.manual_seed(SEED)
+#             align_res = []
+#             for config in configalign_list:
+#                 align_res.append(np.mean(b_res[config]) / np.mean(a_res[config]))
+#                 print(f"{config}: {np.mean(a_res[config]):.6f} {np.mean(b_res[config]):.6f} {align_res[-1]:.2f}")
+#             align_best = configalign_list[np.argmax(align_res)]
 
-                tarlen = random.randint(40, 60)
-                bsz = 4096 // tarlen
-                factor = 8
-                vocabsize = random.randint(12345, 23456)
-                a, b = random_check_gather(bsz, tarlen * factor, tarlen, vocabsize)
-                if i > 0:
-                    a_res[0].append(a)
-                    b_res[0].append(b)
+#             print(f"Best Choice: {align_best}")
 
-            gather_res = np.mean(b_res[0]) / np.mean(a_res[0])
-            print(f"{np.mean(a_res[0]):.6f} {np.mean(b_res[0]):.6f} {gather_res:.2f}")
+#         if not skip_gather:
+#             print("########### Test Gather #############")
 
-        DagLossFunc.config = forward_best
-        DagLossFunc.config1 = backward_best[0]
-        DagLossFunc.config2 = backward_best[1]
-        DagBestAlignmentFunc.config = align_best
+#             a_res, b_res = defaultdict(list), defaultdict(list)
+#             for i in tqdm.tqdm(range(100)):
+#                 SEED = i
+#                 random.seed(SEED)
+#                 np.random.seed(SEED)
+#                 torch.manual_seed(SEED)
+#                 torch.cuda.manual_seed(SEED)
 
-    tune_config()
+#                 tarlen = random.randint(40, 60)
+#                 bsz = 4096 // tarlen
+#                 factor = 8
+#                 vocabsize = random.randint(12345, 23456)
+#                 a, b = random_check_gather(bsz, tarlen * factor, tarlen, vocabsize)
+#                 if i > 0:
+#                     a_res[0].append(a)
+#                     b_res[0].append(b)
+
+#             gather_res = np.mean(b_res[0]) / np.mean(a_res[0])
+#             print(f"{np.mean(a_res[0]):.6f} {np.mean(b_res[0]):.6f} {gather_res:.2f}")
+
+#         DagLossFunc.config = forward_best
+#         DagLossFunc.config1 = backward_best[0]
+#         DagLossFunc.config2 = backward_best[1]
+#         DagBestAlignmentFunc.config = align_best
+
+#     tune_config()

@@ -32,7 +32,6 @@ from torch.autograd import Function
 from ..custom_ops import torch_dag_loss, torch_dag_best_alignment, torch_dag_logsoftmax_gather_inplace
 
 from .utilities import parse_anneal_argument, get_anneal_value
-from ..discrete_diffusion.reparam_absorbing_diffusion import ReparamAbsorbingDiffusion
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +43,8 @@ if SHOW_MEMORY_USE:
     gpu_tracker = MemTracker()
 ########################################
 
-@register_criterion("diffusion_dag_loss")
-class DiffuDAGLoss(FairseqCriterion):
+@register_criterion("nat_dag_loss")
+class NATDAGLoss(FairseqCriterion):
 
     def __init__(self, cfg, task):
         super().__init__(task)
@@ -210,67 +209,15 @@ class DiffuDAGLoss(FairseqCriterion):
                 "require_glance_grad": False
             }
 
-        def diffusion_function(model, encoder_out, tgt_tokens, prev_output_tokens, links=None):
+        def glat_function(model, word_ins_out, tgt_tokens, prev_output_tokens, glat, links=None):
             batch_size, prelen, _ = links.shape
             tarlen = tgt_tokens.shape[1]
             nonpad_positions = ~tgt_tokens.eq(model.pad)
             target_length = (nonpad_positions).sum(1)
             output_length = prev_output_tokens.ne(model.pad).sum(1)
 
-            non_special_sym_mask = (
-                tgt_tokens.ne(model.pad) & 
-                tgt_tokens.ne(model.bos) & 
-                tgt_tokens.ne(model.eos)
-            )
-            # B x T
-            decoder_outputs = model.decoder(
-                normalize=False,
-                prev_output_tokens=prev_output_tokens,
-                encoder_out=encoder_out,
-                t=absorbing_dict["t"],
-            ) # a tuple ([B, N, C], None) or ([B, N, C], [B, N])
-
-            pred_tokens = decoder_outputs.argmax(-1)
-            decoder_outputs, match = torch_dag_logsoftmax_gather_inplace(decoder_outputs, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
-            match = match.transpose(1, 2)
-
-            if model.args.max_transition_length != -1:
-                links = model.restore_valid_links(links)
-            path = torch_dag_best_alignment(match, links, output_length, target_length)
-            oracle = tgt_tokens.gather(-1, path.clip(min=0)) # bsz * prelen
-
-            
-            num_q_samples = 2
-            tgt_tokens = tgt_tokens.repeat(num_q_samples, 1)
-            encoder_out = encoder_out.repeat(num_q_samples, 1, 1)
-            
-            # Sample time step for both absorbing and multinomial
-            t1, weight_t = model.time_sampler.sample(tgt_tokens.shape[0], tgt_tokens.device)
-            t2, _ = model.time_sampler.sample(tgt_tokens.shape[0], tgt_tokens.device)
-            weight_t = weight_t.repeat(num_q_samples)
-
-            # Absorbing diffusion
-            x_t, x_0_ignore, mask, t = model.absorbing.q_sample_coupled(x_0=tgt_tokens, t1=t1, t2=t2, non_special_sym_mask=non_special_sym_mask) 
-
-            absorbing_dict = {
-                "x_0" : tgt_tokens,
-                "x_t" : x_t,
-                "x_0_ignore" : x_0_ignore,
-                "masks" : mask,
-                "t": t,
-                "weight_t": weight_t
-            }
-
-            decoder_outputs = model.decoder(
-                normalize=False,
-                prev_output_tokens=absorbing_dict["x_t"],
-                encoder_out=encoder_out,
-                t=absorbing_dict["t"],
-            ) # a tuple ([B, N, C], None) or ([B, N, C], [B, N])
-            absorbing_dict["decoder_outputs"] = decoder_outputs
-
-            pred_tokens = decoder_outputs.argmax(-1)
-            decoder_outputs, match = torch_dag_logsoftmax_gather_inplace(decoder_outputs, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
+            pred_tokens = word_ins_out.argmax(-1)
+            word_ins_out, match = torch_dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
             # if self.cfg.torch_dag_logsoftmax_gather:
             #     word_ins_out, match = torch_dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
             # else:
@@ -331,8 +278,16 @@ class DiffuDAGLoss(FairseqCriterion):
 
             return glat_prev_output_tokens, glat_tgt_tokens, glat_info
 
-        outputs = model(src_tokens, src_lengths, prev_output_tokens, tgt_tokens, glat, diffusion_function)
+        outputs = model(src_tokens, src_lengths, prev_output_tokens, tgt_tokens, glat, glat_function)
+        ar_outputs, _ = model.extract_features(sample["net_input"]["prev_output_tokens"], 
+                                               outputs["word_ins"].get("encoder_out"), 
+                                               outputs["word_ins"].get("seed"), 
+                                               require_links=False, full_context_alignment=False)
 
+        # Auto-regressive losses
+        _losses = F.cross_entropy(ar_outputs.transpose(-1, -2), tgt_tokens, label_smoothing=0.1)
+        ar_losses = {"loss" : _losses, "name" : "ar-loss", "loss_nofactor" : _losses}
+        ard_tgt = ar_outputs.argmax(-1)
         losses = []
 
         # DAG loss
@@ -349,7 +304,21 @@ class DiffuDAGLoss(FairseqCriterion):
             model=model
         )
 
-        losses += [_losses]
+        # Distillation loss
+        distill_losses = self._compute_dag_loss(
+            outputs["word_ins"].get("out"),
+            prev_output_tokens.ne(self.task.tgt_dict.pad()),
+            ard_tgt,
+            outputs["word_ins"].get("mask", None),
+            outputs["links"],
+            name="distill-loss",
+            factor=1,
+            matchmask=outputs.get('matchmask', None),
+            keep_word_mask=outputs.get('keep_word_mask', None),
+            model=model
+        )
+
+        losses += [_losses, ar_losses, distill_losses]
         dag_nll_loss = _losses.get("nll_loss", 0.0)
         nsentences = _losses["nsentences"]
         ntokens = _losses["ntokens"]

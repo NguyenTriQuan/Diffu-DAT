@@ -222,11 +222,13 @@ class NATransformerDecoder(FairseqNATDecoder):
         self.embed_length = Embedding(256, self.encoder_embed_dim, None)
 
     @ensemble_decoder
-    def forward(self, normalize, encoder_out, prev_output_tokens, step=0, **unused):
+    def forward(self, normalize, encoder_out, prev_output_tokens, step=0, t=None, full_context_alignment=True, **unused):
         features, _ = self.extract_features(
             prev_output_tokens,
             encoder_out=encoder_out,
             embedding_copy=(step == 0) & self.src_embedding_copy,
+            t=t,
+            full_context_alignment=full_context_alignment
         )
         decoder_out = self.output_layer(features)
         return F.log_softmax(decoder_out, -1) if normalize else decoder_out
@@ -250,6 +252,8 @@ class NATransformerDecoder(FairseqNATDecoder):
         encoder_out=None,
         early_exit=None,
         embedding_copy=False,
+        t=None,
+        full_context_alignment=True,
         **unused
     ):
         """
@@ -294,6 +298,10 @@ class NATransformerDecoder(FairseqNATDecoder):
         attn = None
         inner_states = [x]
 
+        self_attn_mask = None
+        if not full_context_alignment:
+            self_attn_mask = self.buffered_future_mask(x)
+
         # decoder layers
         for i, layer in enumerate(self.layers):
 
@@ -312,7 +320,7 @@ class NATransformerDecoder(FairseqNATDecoder):
                     and len(encoder_out["encoder_padding_mask"]) > 0
                 )
                 else None,
-                self_attn_mask=None,
+                self_attn_mask=self_attn_mask,
                 self_attn_padding_mask=decoder_padding_mask,
             )
             inner_states.append(x)

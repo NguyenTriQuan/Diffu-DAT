@@ -61,7 +61,7 @@ def logsumexp(x: Tensor, dim: int) -> Tensor:
     return s.masked_fill_(mask, 1).log() + m.masked_fill_(mask, -float('inf'))
 
 @register_model("diffusion_decomposed_link")
-class GlatDecomposedLink(FairseqNATModel):
+class DiffusionDecomposedLink(FairseqNATModel):
 
     def __init__(self, args, encoder, decoder):
         super().__init__(args, encoder, decoder)
@@ -85,7 +85,7 @@ class GlatDecomposedLink(FairseqNATModel):
 
     @classmethod
     def build_decoder(cls, args, tgt_dict, embed_tokens):
-        decoder = GlatLinkDecoder(args, tgt_dict, embed_tokens)
+        decoder = DiffusionLinkDecoder(args, tgt_dict, embed_tokens)
         if getattr(args, "apply_bert_init", False):
             decoder.apply(init_bert_params)
         return decoder
@@ -93,7 +93,7 @@ class GlatDecomposedLink(FairseqNATModel):
     @staticmethod
     def add_args(parser):
         FairseqNATModel.add_args(parser)
-        GlatLinkDecoder.add_args(parser)
+        DiffusionLinkDecoder.add_args(parser)
 
         # length prediction
         parser.add_argument(
@@ -531,7 +531,7 @@ class GlatDecomposedLink(FairseqNATModel):
         )
 
 
-class GlatLinkDecoder(NATransformerDecoder):
+class DiffusionLinkDecoder(NATransformerDecoder):
 
     def __init__(self, args, dictionary, embed_tokens, no_encoder_attn=False):
         super().__init__(args, dictionary, embed_tokens, no_encoder_attn)

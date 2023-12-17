@@ -205,12 +205,13 @@ class GlatDecomposedLink(FairseqNATModel):
 
         return links
 
-    def extract_features(self, prev_output_tokens, encoder_out, rand_seed, require_links=False):
+    def extract_features(self, prev_output_tokens, encoder_out, rand_seed, require_links=False, full_context_alignment=True):
         with torch_seed(rand_seed):
             features, _ = self.decoder.extract_features(
                 prev_output_tokens,
                 encoder_out=encoder_out,
-                embedding_copy=False
+                embedding_copy=False,
+                full_context_alignment=full_context_alignment
             )
             # word_ins_out = self.decoder.output_layer(features)
             word_ins_out = self.decoder.output_projection(features)
@@ -255,9 +256,11 @@ class GlatDecomposedLink(FairseqNATModel):
         ret = {
             "word_ins": {
                 "out": word_ins_out,
+                "encoder_out": encoder_out,
                 "tgt": tgt_tokens,
                 "mask": tgt_tokens.ne(self.pad),
                 "nll_loss": True,
+                "seed": rand_seed
             }
         }
         ret['links'] = links
