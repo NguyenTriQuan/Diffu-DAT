@@ -43,7 +43,7 @@ if SHOW_MEMORY_USE:
     gpu_tracker = MemTracker()
 ########################################
 
-@register_criterion("nat_dag_loss")
+@register_criterion("ard_dag_loss")
 class NATDAGLoss(FairseqCriterion):
 
     def __init__(self, cfg, task):
