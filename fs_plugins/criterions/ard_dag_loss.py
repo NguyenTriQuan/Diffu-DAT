@@ -285,7 +285,7 @@ class NATDAGLoss(FairseqCriterion):
                                                require_links=False, full_context_alignment=False)
 
         # Auto-regressive losses
-        _losses = F.cross_entropy(ar_outputs.transpose(-1, -2), tgt_tokens, label_smoothing=0.1, reduce=False, ignore_index=1).mean(1)
+        _losses = F.cross_entropy(ar_outputs.transpose(-1, -2), tgt_tokens, reduce=False, ignore_index=1).mean(1)
         invalid_masks = _losses.isinf().logical_or(_losses.isnan())
         _losses.masked_fill_(invalid_masks, 0)
         _losses = _losses.mean()
