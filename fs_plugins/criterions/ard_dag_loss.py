@@ -279,14 +279,17 @@ class NATDAGLoss(FairseqCriterion):
             return glat_prev_output_tokens, glat_tgt_tokens, glat_info
 
         outputs = model(src_tokens, src_lengths, prev_output_tokens, tgt_tokens, glat, glat_function)
-        print(sample["net_input"]["prev_output_tokens"][0], tgt_tokens[0])
         ar_outputs, _ = model.extract_features(sample["net_input"]["prev_output_tokens"], 
                                                outputs["word_ins"].get("encoder_out"), 
                                                outputs["word_ins"].get("seed"), 
                                                require_links=False, full_context_alignment=False)
 
         # Auto-regressive losses
-        _losses = F.cross_entropy(ar_outputs.transpose(-1, -2), tgt_tokens, label_smoothing=0.1)
+        _losses = F.cross_entropy(ar_outputs.transpose(-1, -2), tgt_tokens, label_smoothing=0.1, reduce=False, ignore_index=1).mean(1)
+        invalid_masks = _losses.isinf().logical_or(_losses.isnan())
+        _losses.masked_fill_(invalid_masks, 0)
+        _losses = -_losses.mean()
+
         ar_losses = {"loss" : _losses, "name" : "ar-loss", "loss_nofactor" : _losses}
         ard_tgt = ar_outputs.argmax(-1)
         losses = []
