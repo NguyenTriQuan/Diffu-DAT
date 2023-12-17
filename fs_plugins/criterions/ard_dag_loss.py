@@ -285,9 +285,10 @@ class NATDAGLoss(FairseqCriterion):
                                                require_links=False, full_context_alignment=False)
 
         # Auto-regressive losses
-        _losses = F.cross_entropy(ar_outputs.transpose(-1, -2), tgt_tokens, label_smoothing=0.1)
+        _losses = F.cross_entropy(F.log_softmax(ar_outputs, -1).transpose(-1, -2), tgt_tokens, label_smoothing=0.1)
         ar_losses = {"loss" : _losses, "name" : "ar-loss", "loss_nofactor" : _losses}
         ard_tgt = ar_outputs.argmax(-1)
+        print(ard_tgt)
         losses = []
 
         # DAG loss
