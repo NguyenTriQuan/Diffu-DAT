@@ -225,7 +225,7 @@ class NATransformerDecoder(FairseqNATDecoder):
 
     @ensemble_decoder
     def forward(self, normalize, encoder_out, prev_output_tokens, step=0, t=None, full_context_alignment=True, **unused):
-        features, _ = self.extract_features(
+        features, extra = self.extract_features(
             prev_output_tokens,
             encoder_out=encoder_out,
             embedding_copy=(step == 0) & self.src_embedding_copy,
@@ -233,7 +233,11 @@ class NATransformerDecoder(FairseqNATDecoder):
             full_context_alignment=full_context_alignment
         )
         decoder_out = self.output_layer(features)
-        return F.log_softmax(decoder_out, -1) if normalize else decoder_out
+        score_out = F.log_softmax(decoder_out, -1) if normalize else decoder_out
+        if full_context_alignment:
+            return score_out
+        else:
+            return score_out, extra
 
     @ensemble_decoder
     def forward_length(self, normalize, encoder_out):
