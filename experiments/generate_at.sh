@@ -12,7 +12,7 @@ average_checkpoint_path=$checkpoint_dir"/average.pt"
 
 
 fairseq-generate ${data_dir} \
-    --gen-subset test --user-dir fs_plugins --task translation_lev_modified \
+    --gen-subset test --user-dir fs_plugins \
     --beam 1 \
     --remove-bpe --max-tokens 4096 --seed 0 \
     --path ${average_checkpoint_path} \
