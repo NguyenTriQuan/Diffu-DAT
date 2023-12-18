@@ -15,5 +15,6 @@ fairseq-generate ${data_dir} \
     --remove-bpe --max-tokens 4096 --seed 0 \
     --model-overrides "{\"decode_strategy\":\"jointviterbi\",\"decode_viterbibeta\":0.1}" \
     --path ${average_checkpoint_path} \
+    --eval-bleu-print-samples \
     --skip-invalid-size-inputs-valid-test
 
