@@ -15,7 +15,7 @@ fairseq-generate ${data_dir} \
     --gen-subset test --user-dir fs_plugins --task translation_lev_modified \
     --iter-decode-max-iter 0 --iter-decode-eos-penalty 0 --beam 1 \
     --remove-bpe --max-tokens 4096 --seed 0 \
-    --model-overrides "{\"decode_strategy\":\"jointviterbi\",\"decode_viterbibeta\":1}" \
+    --model-overrides "{\"decode_strategy\":\"jointviterbi\",\"decode_viterbibeta\":1.5}" \
     --path ${average_checkpoint_path} \
     --skip-invalid-size-inputs-valid-test \
     # --model-overrides "{\"decode_strategy\":\"lookahead\",\"decode_upsample_scale\":8,\"decode_beta\":1}" \
