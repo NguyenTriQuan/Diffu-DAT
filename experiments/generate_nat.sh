@@ -14,4 +14,5 @@ fairseq-generate ${data_dir} \
     --iter-decode-max-iter 0 --iter-decode-eos-penalty 0 --beam 1 \
     --remove-bpe --max-tokens 4096 --seed 0 \
     --model-overrides "{\"decode_strategy\":\"lookahead\",\"decode_upsample_scale\":0.1,\"decode_beta\":1}" \
+    --path ${average_checkpoint_path} \
     --skip-invalid-size-inputs-valid-test
