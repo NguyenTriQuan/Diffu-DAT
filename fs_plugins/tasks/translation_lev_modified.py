@@ -158,39 +158,39 @@ class TranslationLevenshteinModifiedTask(TranslationTask):
 
     def build_generator(self, models, args, **unused):
         # add models input to match the API for SequenceGenerator
-        # from fairseq.iterative_refinement_generator import IterativeRefinementGenerator
+        from fairseq.iterative_refinement_generator import IterativeRefinementGenerator
 
-        # return IterativeRefinementGenerator(
-        #     self.target_dictionary,
-        #     eos_penalty=getattr(args, "iter_decode_eos_penalty", 0.0),
-        #     max_iter=getattr(args, "iter_decode_max_iter", 10),
-        #     beam_size=getattr(args, "iter_decode_with_beam", 1),
-        #     reranking=getattr(args, "iter_decode_with_external_reranker", False),
-        #     decoding_format=getattr(args, "decoding_format", None),
-        #     adaptive=not getattr(args, "iter_decode_force_max_iter", False),
-        #     retain_history=getattr(args, "retain_iter_history", False),
-        # )
-
-        from fairseq.sequence_generator import (
-            SequenceGenerator,
-            SequenceGeneratorWithAlignment,
+        return IterativeRefinementGenerator(
+            self.target_dictionary,
+            eos_penalty=getattr(args, "iter_decode_eos_penalty", 0.0),
+            max_iter=getattr(args, "iter_decode_max_iter", 10),
+            beam_size=getattr(args, "iter_decode_with_beam", 1),
+            reranking=getattr(args, "iter_decode_with_external_reranker", False),
+            decoding_format=getattr(args, "decoding_format", None),
+            adaptive=not getattr(args, "iter_decode_force_max_iter", False),
+            retain_history=getattr(args, "retain_iter_history", False),
         )
-        from fairseq import metrics, search, tokenizer, utils
-        return SequenceGenerator(
-                models,
-                self.target_dictionary,
-                beam_size=getattr(args, "beam", 5),
-                max_len_a=getattr(args, "max_len_a", 0),
-                max_len_b=getattr(args, "max_len_b", 200),
-                min_len=getattr(args, "min_len", 1),
-                normalize_scores=(not getattr(args, "unnormalized", False)),
-                len_penalty=getattr(args, "lenpen", 1),
-                unk_penalty=getattr(args, "unkpen", 0),
-                temperature=getattr(args, "temperature", 1.0),
-                match_source_len=getattr(args, "match_source_len", False),
-                no_repeat_ngram_size=getattr(args, "no_repeat_ngram_size", 0),
-                search_strategy=search.BeamSearch(self.target_dictionary),
-            )
+
+        # from fairseq.sequence_generator import (
+        #     SequenceGenerator,
+        #     SequenceGeneratorWithAlignment,
+        # )
+        # from fairseq import metrics, search, tokenizer, utils
+        # return SequenceGenerator(
+        #         models,
+        #         self.target_dictionary,
+        #         beam_size=getattr(args, "beam", 5),
+        #         max_len_a=getattr(args, "max_len_a", 0),
+        #         max_len_b=getattr(args, "max_len_b", 200),
+        #         min_len=getattr(args, "min_len", 1),
+        #         normalize_scores=(not getattr(args, "unnormalized", False)),
+        #         len_penalty=getattr(args, "lenpen", 1),
+        #         unk_penalty=getattr(args, "unkpen", 0),
+        #         temperature=getattr(args, "temperature", 1.0),
+        #         match_source_len=getattr(args, "match_source_len", False),
+        #         no_repeat_ngram_size=getattr(args, "no_repeat_ngram_size", 0),
+        #         search_strategy=search.BeamSearch(self.target_dictionary),
+        #     )
 
     def build_dataset_for_inference(self, src_tokens, src_lengths, constraints=None):
         if constraints is not None:
