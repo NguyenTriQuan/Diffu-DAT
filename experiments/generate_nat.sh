@@ -1,9 +1,9 @@
 data_name=iwslt14
 data_dir=data-bin/iwslt14.tokenized.de-en
 arch=glat_decomposed_link_base
-criterion=nat_dag_loss
-# checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints_1/$data_name"_"$arch"_"$criterion
-checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints/$data_name"_"$arch
+criterion=ard_dag_loss
+checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints_1/$data_name"_"$arch"_"$criterion
+# checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints/$data_name"_"$arch
 
 average_checkpoint_path=$checkpoint_dir"/average.pt"
 
@@ -13,7 +13,7 @@ average_checkpoint_path=$checkpoint_dir"/average.pt"
 
 fairseq-generate ${data_dir} \
     --gen-subset test --user-dir fs_plugins --task translation_lev_modified \
-    --iter-decode-max-iter 0 --iter-decode-eos-penalty 0 --beam 1 \
+    --iter-decode-max-iter 0 --iter-decode-eos-penalty 0 --beam 5 \
     --remove-bpe --max-tokens 4096 --seed 0 \
     --model-overrides "{\"decode_strategy\":\"lookahead\",\"decode_upsample_scale\":8,\"decode_beta\":1}" \
     --path ${average_checkpoint_path} \
