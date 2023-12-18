@@ -212,7 +212,7 @@ class DiffuDAGLoss(FairseqCriterion):
                 "require_glance_grad": False
             }
 
-        def diffusion_function(model, encoder_out, tgt_tokens, prev_output_tokens, links=None):
+        def diffusion_function(model, t, encoder_out, tgt_tokens, prev_output_tokens, links=None):
             batch_size, prelen, _ = links.shape
             tarlen = tgt_tokens.shape[1]
             nonpad_positions = ~tgt_tokens.eq(model.pad)
@@ -224,37 +224,19 @@ class DiffuDAGLoss(FairseqCriterion):
                 tgt_tokens.ne(model.bos) & 
                 tgt_tokens.ne(model.eos)
             )
-            # B x T
-            decoder_outputs = model.decoder(
-                normalize=False,
-                prev_output_tokens=prev_output_tokens,
-                encoder_out=encoder_out,
-                t=absorbing_dict["t"],
-            ) # a tuple ([B, N, C], None) or ([B, N, C], [B, N])
-
-            pred_tokens = decoder_outputs.argmax(-1)
-            decoder_outputs, match = torch_dag_logsoftmax_gather_inplace(decoder_outputs, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
-            match = match.transpose(1, 2)
 
             if model.args.max_transition_length != -1:
                 links = model.restore_valid_links(links)
-            path = torch_dag_best_alignment(match, links, output_length, target_length)
-            oracle = tgt_tokens.gather(-1, path.clip(min=0)) # bsz * prelen
-
             
-            num_q_samples = 2
-            tgt_tokens = tgt_tokens.repeat(num_q_samples, 1)
-            encoder_out = encoder_out.repeat(num_q_samples, 1, 1)
+            path = links.argmax(dim=-1) # batch * prelen
             
-            # Sample time step for both absorbing and multinomial
-            t1, weight_t = model.time_sampler.sample(tgt_tokens.shape[0], tgt_tokens.device)
-            t2, _ = model.time_sampler.sample(tgt_tokens.shape[0], tgt_tokens.device)
-            weight_t = weight_t.repeat(num_q_samples)
+            weight_t = 1
+            t = torch.full((prev_output_tokens.shape[0],), t, device=prev_output_tokens.device, dtype=torch.long)
 
             # Absorbing diffusion
-            x_t, x_0_ignore, mask, t = model.absorbing.q_sample_coupled(x_0=tgt_tokens, t1=t1, t2=t2, non_special_sym_mask=non_special_sym_mask) 
+            x_t, x_0_ignore, mask = model.diffusion.q_sample(x_0=tgt_tokens, t=t, non_special_sym_mask=non_special_sym_mask) 
 
-            absorbing_dict = {
+            diffusion_dict = {
                 "x_0" : tgt_tokens,
                 "x_t" : x_t,
                 "x_0_ignore" : x_0_ignore,
@@ -262,76 +244,8 @@ class DiffuDAGLoss(FairseqCriterion):
                 "t": t,
                 "weight_t": weight_t
             }
-
-            decoder_outputs = model.decoder(
-                normalize=False,
-                prev_output_tokens=absorbing_dict["x_t"],
-                encoder_out=encoder_out,
-                t=absorbing_dict["t"],
-            ) # a tuple ([B, N, C], None) or ([B, N, C], [B, N])
-            absorbing_dict["decoder_outputs"] = decoder_outputs
-
-            pred_tokens = decoder_outputs.argmax(-1)
-            decoder_outputs, match = torch_dag_logsoftmax_gather_inplace(decoder_outputs, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
-            # if self.cfg.torch_dag_logsoftmax_gather:
-            #     word_ins_out, match = torch_dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
-            # else:
-            #     word_ins_out, match = dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
-            match = match.transpose(1, 2)
-
-            if model.args.max_transition_length != -1:
-                links = model.restore_valid_links(links)
-            path = torch_dag_best_alignment(match, links, output_length, target_length)
             
-            # if self.cfg.torch_dag_best_alignment:
-            #     if model.args.max_transition_length != -1:
-            #         links = model.restore_valid_links(links)
-            #     path = torch_dag_best_alignment(match, links, output_length, target_length)
-            # else:
-            #     assert model.args.max_transition_length != -1, "cuda dag best alignment does not support max_transition_length=-1. You can use a very large number such as 99999"
-            #     path = dag_best_alignment(match, links, output_length, target_length) # batch * prelen
-
-            predict_align_mask = path >= 0
-            matchmask = torch.zeros(batch_size, tarlen + 1, prelen, device=match.device, dtype=torch.bool).scatter_(1, path.unsqueeze(1) + 1, 1)[:, 1:]
-            oracle = tgt_tokens.gather(-1, path.clip(min=0)) # bsz * prelen
-            same_num = ((pred_tokens == oracle) & predict_align_mask).sum(1)
-
-            if self.glance_strategy is None:
-                keep_prob = ((target_length - same_num) / target_length * glat['context_p']).unsqueeze(-1) * predict_align_mask.float()
-
-            elif self.glance_strategy in ['number-random']:
-                prob = torch.randn(oracle.shape, device=tgt_tokens.device, dtype=torch.float)
-                prob.masked_fill_(~predict_align_mask, -100)
-                glance_nums = ((target_length - same_num) * glat['context_p'] + 0.5).to(torch.long)
-                #prob_thresh = prob.topk(glance_nums.max().clip(min=1))[0].gather(-1, (glance_nums - 1).clip(min=0).unsqueeze(-1)).squeeze(-1)
-                prob_thresh = prob.sort(descending=True)[0].gather(-1, (glance_nums - 1).clip(min=0).unsqueeze(-1)).squeeze(-1)
-                prob_thresh.masked_fill_(glance_nums == 0, 100)
-                keep_prob = (prob >= prob_thresh.unsqueeze(-1)).to(prob.dtype)
-
-            elif self.glance_strategy == "cmlm":
-                prob = torch.randn(oracle.shape, device=tgt_tokens.device, dtype=torch.float)
-                prob.masked_fill_(~predict_align_mask, -100)
-                glance_nums = (target_length * torch.rand_like(target_length, dtype=torch.float) + 0.5).to(torch.long)
-                #prob_thresh = prob.topk(glance_nums.max().clip(min=1))[0].gather(-1, (glance_nums - 1).clip(min=0).unsqueeze(-1)).squeeze(-1)
-                prob_thresh = prob.sort(descending=True)[0].gather(-1, (glance_nums - 1).clip(min=0).unsqueeze(-1)).squeeze(-1)
-                prob_thresh.masked_fill_(glance_nums == 0, 100)
-                keep_prob = (prob >= prob_thresh.unsqueeze(-1)).to(prob.dtype)
-
-            keep_word_mask = (torch.rand(prev_output_tokens.shape, device=prev_output_tokens.device) < keep_prob).bool()
-
-            glat_prev_output_tokens = prev_output_tokens.masked_fill(keep_word_mask, 0) + oracle.masked_fill(~keep_word_mask, 0)
-            glat_tgt_tokens = tgt_tokens
-
-            glat_info = {
-                "glat_accu": (same_num.sum() / target_length.sum()).detach(),
-                "glat_context_p": glat['context_p'],
-                "glat_keep": keep_prob.mean().detach(),
-                "matchmask": matchmask,
-                "keep_word_mask": keep_word_mask,
-                "glat_prev_output_tokens": glat_prev_output_tokens,
-            }
-
-            return glat_prev_output_tokens, glat_tgt_tokens, glat_info
+            return diffusion_dict
 
         outputs = model(src_tokens, src_lengths, prev_output_tokens, tgt_tokens, glat, diffusion_function)
 
