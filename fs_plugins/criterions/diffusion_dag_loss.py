@@ -229,6 +229,7 @@ class DiffuDAGLoss(FairseqCriterion):
                 links = model.restore_valid_links(links)
             
             path = links.argmax(dim=-1) # batch * prelen
+            oracle = tgt_tokens.gather(-1, path.clip(min=0))
             
             weight_t = 1
             t = torch.full((prev_output_tokens.shape[0],), t, device=prev_output_tokens.device, dtype=torch.long)
@@ -244,7 +245,7 @@ class DiffuDAGLoss(FairseqCriterion):
                 "t": t,
                 "weight_t": weight_t
             }
-            
+
             return diffusion_dict
 
         outputs = model(src_tokens, src_lengths, prev_output_tokens, tgt_tokens, glat, diffusion_function)
