@@ -220,6 +220,28 @@ class DiffusionDecomposedLink(FairseqNATModel):
             links = logsumexp(log_multi_attention + log_gates.unsqueeze(2), dim=-1) # batch_size * seqlen * seqlen
 
         return links
+    
+    def sample_links(self, prev_output_tokens, encoder_out, tgt_tokens, t):
+            
+        for i in range(t):
+            features, _ = self.decoder.extract_features(
+                prev_output_tokens,
+                encoder_out=encoder_out,
+                embedding_copy=False,
+                t=torch.full((prev_output_tokens.shape[0],), i, device=prev_output_tokens.device, dtype=torch.long),
+            )
+        
+            links = self.extract_links(features, \
+                        prev_output_tokens, \
+                        self.decoder.link_positional, \
+                        self.decoder.query_linear, \
+                        self.decoder.key_linear, \
+                        self.decoder.gate_linear
+                )
+            if self.args.max_transition_length != -1:
+                links = self.restore_valid_links(links)
+            
+            path = links.max(dim=-1)[1] # batch * prelen
 
     def extract_features(self, prev_output_tokens, encoder_out, rand_seed, require_links=False):
         with torch_seed(rand_seed):
@@ -386,7 +408,7 @@ class DiffusionDecomposedLink(FairseqNATModel):
                 return (min(self.encoder.max_positions(), int(self.decoder.max_positions() / self.args.src_upsample_scale)), self.decoder.max_positions())
             else:
                 return (min(self.encoder.max_positions(), int(self.decoder.max_positions() / self.args.length_multiplier)), self.decoder.max_positions())
-
+            
     def forward_decoder(self, decoder_out, encoder_out, decoding_format=None, **kwargs):
         step = decoder_out.step
         output_tokens = decoder_out.output_tokens
@@ -536,6 +558,11 @@ class DiffusionLinkDecoder(NATransformerDecoder):
     def __init__(self, args, dictionary, embed_tokens, no_encoder_attn=False):
         super().__init__(args, dictionary, embed_tokens, no_encoder_attn)
         self.init_link_feature(args)
+        self.time_pos_emb = TimestepEmbedding(
+            args.decoder_embed_dim, 
+            args.num_diffusion_timesteps+1, 
+            timestep_emb_type='learnable'
+        )
 
     def init_link_feature(self, args):
         links_feature = self.args.links_feature.split(":")
@@ -558,6 +585,39 @@ class DiffusionLinkDecoder(NATransformerDecoder):
     @staticmethod
     def add_args(parser):
         pass
+
+class TimestepEmbedding(nn.Module):
+    def __init__(self, dim, num_steps, timestep_emb_type='sinusoidal', rescaled_numsteps=4000, per_layer=False):
+        super().__init__()
+        self.dim = dim
+        self.num_steps = num_steps
+        self.timestep_emb_type = timestep_emb_type
+        self.rescaled_numsteps = float(rescaled_numsteps)
+        assert self.timestep_emb_type in ('none', 'learnable', 'sinusoidal')
+        if self.timestep_emb_type == 'none':
+            self.register_buffer('zero_emb', torch.zeros(1, 1, 1))
+        else:
+            if self.timestep_emb_type == 'learnable':
+                self.learned_timestep_emb = nn.Embedding(self.num_steps, dim)
+            self.output_mlp = nn.Linear(dim, dim)
+
+    def forward(self, t):
+        if self.timestep_emb_type == 'none':
+            return self.zero_emb
+        elif self.timestep_emb_type == 'learnable':
+            emb = self.learned_timestep_emb(t)
+        elif self.timestep_emb_type == 'sinusoidal':
+            # sinusoidal positional embeddings
+            # this re-scaling is necessary for char-level generation, 
+            # which mimics the training with more time-steps.
+            half_dim = self.dim // 2
+            emb = math.log(10000) / (half_dim - 1)
+            emb = torch.exp(torch.arange(half_dim, device=t.device) * -emb)
+            emb = t[:, None] * emb[None, :]
+            emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
+            # emb = emb.half()
+        time_embed = self.output_mlp(emb).view(t.size(0), 1, self.dim)
+        return time_embed
 
 @register_model_architecture(
     "diffusion_decomposed_link", "diffusion_decomposed_link_6e6d512"

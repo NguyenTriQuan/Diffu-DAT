@@ -62,6 +62,8 @@ class DiffuDAGLoss(FairseqCriterion):
     @staticmethod
     def add_args(parser):
         """Add criterion-specific arguments to the parser."""
+        parser.add_argument("--num-diffusion-steps", type=float, default=0, help="DA-Transformer does not use label smoothing for now")
+
         parser.add_argument("--label-smoothing", type=float, default=0, help="DA-Transformer does not use label smoothing for now")
         parser.add_argument("--glat-p", type=str, default="0", help="Glancing probability. 0.5:0.1@200k indicates annealing p from 0.5 to 0.1 in 200k steps.")
         parser.add_argument("--glance-strategy", type=str, default=None, help='Glancing strategy. Possible values: "number-random" or "None" or "CMLM"')

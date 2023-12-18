@@ -4,7 +4,9 @@
 # LICENSE file in the root directory of this source tree.
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
+import math
 from fairseq import utils
 from fairseq.iterative_refinement_generator import DecoderOut
 from fairseq.models import register_model, register_model_architecture
@@ -287,11 +289,12 @@ class NATransformerDecoder(FairseqNATDecoder):
                 self.forward_copying_source(
                     src_embd, src_mask, prev_output_tokens.ne(self.padding_idx)
                 ),
+                t=t,
             )
 
         else:
 
-            x, decoder_padding_mask = self.forward_embedding(prev_output_tokens)
+            x, decoder_padding_mask = self.forward_embedding(prev_output_tokens, t=t)
 
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
@@ -336,14 +339,7 @@ class NATransformerDecoder(FairseqNATDecoder):
 
         return x, {"attn": attn, "inner_states": inner_states}
 
-    def forward_embedding(self, prev_output_tokens, states=None):
-        # embed positions
-        positions = (
-            self.embed_positions(prev_output_tokens)
-            if self.embed_positions is not None
-            else None
-        )
-
+    def forward_embedding(self, prev_output_tokens, states=None, t=None):
         # embed tokens and positions
         if states is None:
             x = self.embed_scale * self.embed_tokens(prev_output_tokens)
@@ -352,8 +348,11 @@ class NATransformerDecoder(FairseqNATDecoder):
         else:
             x = states
 
-        if positions is not None:
-            x += positions
+        if self.embed_positions is not None:
+            x += self.embed_positions(prev_output_tokens)
+        if t is not None:
+            x += self.time_pos_emb(t)
+
         x = self.dropout_module(x)
         decoder_padding_mask = prev_output_tokens.eq(self.padding_idx)
         return x, decoder_padding_mask
