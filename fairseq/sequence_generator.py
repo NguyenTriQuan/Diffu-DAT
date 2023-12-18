@@ -796,8 +796,8 @@ class EnsembleModel(nn.Module):
                 #     incremental_state=incremental_states[i],
                 # )
                 decoder_out = model.decoder.forward(
-                    True,
-                    tokens,
+                    normalize=True,
+                    prev_output_tokens=tokens,
                     encoder_out=encoder_out,
                     incremental_state=incremental_states[i],
                     full_context_alignment=False
