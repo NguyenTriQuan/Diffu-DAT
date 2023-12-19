@@ -5,7 +5,7 @@ criterion=label_smoothed_cross_entropy
 checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints_1/$data_name"_"$arch"_"$criterion
 
 
-CUDA_VISIBLE_DEVICES=1 fairseq-train ${data_dir}  \
+CUDA_VISIBLE_DEVICES=0 fairseq-train ${data_dir}  \
     --user-dir fs_plugins \
     --arch ${arch} --share-decoder-input-output-embed \
     --activation-fn gelu \
