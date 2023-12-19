@@ -9,7 +9,6 @@ CUDA_VISIBLE_DEVICES=1 fairseq-train ${data_dir}  \
     --user-dir fs_plugins \
     --arch ${arch} --share-decoder-input-output-embed \
     --activation-fn gelu \
-    --apply-bert-init \
     --criterion ${criterion} \
     --optimizer adam --adam-betas '(0.9,0.999)' --fp16 \
     --label-smoothing 0.1 --weight-decay 0.01 --dropout 0.3 \
