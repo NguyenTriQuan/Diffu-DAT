@@ -224,7 +224,7 @@ class NATransformerDecoder(FairseqNATDecoder):
         self.embed_length = Embedding(256, self.encoder_embed_dim, None)
 
     @ensemble_decoder
-    def forward(self, normalize, encoder_out, prev_output_tokens, step=0, t=None, full_context_alignment=True, **unused):
+    def forward(self, encoder_out, prev_output_tokens, normalize=False, step=0, t=None, full_context_alignment=True, **unused):
         features, extra = self.extract_features(
             prev_output_tokens,
             encoder_out=encoder_out,

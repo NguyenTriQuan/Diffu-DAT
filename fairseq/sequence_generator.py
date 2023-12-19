@@ -796,7 +796,6 @@ class EnsembleModel(nn.Module):
                 #     incremental_state=incremental_states[i],
                 # )
                 decoder_out = model.decoder.forward(
-                    normalize=True,
                     prev_output_tokens=tokens,
                     encoder_out=encoder_out,
                     incremental_state=incremental_states[i],
@@ -805,7 +804,7 @@ class EnsembleModel(nn.Module):
             else:
                 if hasattr(model, "decoder"):
                     # decoder_out = model.decoder.forward(tokens, encoder_out=encoder_out)
-                    decoder_out = model.decoder.forward(normalize=True, prev_output_tokens=tokens, encoder_out=encoder_out, full_context_alignment=False)
+                    decoder_out = model.decoder.forward(prev_output_tokens=tokens, encoder_out=encoder_out, full_context_alignment=False)
                 else:
                     decoder_out = model.forward(tokens)
 
