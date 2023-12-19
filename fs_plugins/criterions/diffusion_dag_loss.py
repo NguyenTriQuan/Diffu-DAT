@@ -230,12 +230,15 @@ class DiffuDAGLoss(FairseqCriterion):
             
             path = links.argmax(dim=-1) # batch * prelen
             oracle = tgt_tokens.gather(-1, path.clip(min=0))
+
+            keep_word_mask = path >= 0
+            oracle.masked_fill(~keep_word_mask, 1)
             
             weight_t = 1
             t = torch.full((prev_output_tokens.shape[0],), t, device=prev_output_tokens.device, dtype=torch.long)
 
             # Absorbing diffusion
-            x_t, x_0_ignore, mask = model.diffusion.q_sample(x_0=tgt_tokens, t=t, non_special_sym_mask=non_special_sym_mask) 
+            x_t, x_0_ignore, mask = model.diffusion.q_sample(x_0=oracle, t=t, non_special_sym_mask=non_special_sym_mask) 
 
             diffusion_dict = {
                 "x_0" : tgt_tokens,
