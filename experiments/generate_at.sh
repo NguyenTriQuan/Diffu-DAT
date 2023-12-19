@@ -1,7 +1,7 @@
 data_name=iwslt14
 data_dir=data-bin/iwslt14.tokenized.de-en
 arch=transformer_iwslt_de_en_base
-criterion=nat_dag_loss
+criterion=label_smoothed_cross_entropy
 checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints_1/$data_name"_"$arch"_"$criterion
 # checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints/$data_name"_"$arch
 
