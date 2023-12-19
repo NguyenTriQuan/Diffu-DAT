@@ -5,7 +5,7 @@ criterion=nat_dag_loss
 checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints_2/$data_name"_"$arch"_"$criterion
 
 
-CUDA_VISIBLE_DEVICES=2 fairseq-train ${data_dir}  \
+CUDA_VISIBLE_DEVICES=4 fairseq-train ${data_dir}  \
     --user-dir fs_plugins \
     --task translation_lev_modified  --noise full_mask \
     --arch ${arch} \
