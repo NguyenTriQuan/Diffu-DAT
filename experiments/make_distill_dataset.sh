@@ -11,6 +11,7 @@ fairseq-generate $data_dir  \
     --path $average_checkpoint_path  --beam 5 --lenpen 0.6 \
     --user-dir fs_plugins --task translation_lev_modified \
     --remove-bpe --max-tokens 4096 --seed 0 \
+    --skip-invalid-size-inputs-valid-test \
     --gen-subset train  > data-bin/iwslt14/distill_full_0.txt
 
 
