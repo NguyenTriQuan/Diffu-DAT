@@ -1,11 +1,11 @@
 data_name=iwslt14
 data_dir=data-bin/iwslt14.tokenized.de-en
 arch=glat_decomposed_link_base
-criterion=nat_dag_loss
+criterion=ard_dag_loss
 checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints_3/$data_name"_"$arch"_"$criterion
 
 
-CUDA_VISIBLE_DEVICES=1 fairseq-train ${data_dir}  \
+CUDA_VISIBLE_DEVICES=2 fairseq-train ${data_dir}  \
     --user-dir fs_plugins \
     --task translation_lev_modified  --noise full_mask \
     --arch ${arch} \
@@ -18,7 +18,7 @@ CUDA_VISIBLE_DEVICES=1 fairseq-train ${data_dir}  \
     --length-loss-factor 0 --max-transition-length 99999 \
     --glat-p 0.5:0.1@200k --glance-strategy number-random \
     --optimizer adam --adam-betas '(0.9,0.98)' --fp16 \
-    --label-smoothing 0.0 --weight-decay 0.01 --dropout 0.1 \
+    --label-smoothing 0.0 --weight-decay 0.01 --dropout 0.3 \
     --lr-scheduler inverse_sqrt  --warmup-updates 30000   \
     --clip-norm 0.1 --lr 0.0005 --warmup-init-lr '1e-07' --stop-min-lr '1e-09' \
     --max-tokens 4096  --update-freq 1 --grouped-shuffling \
