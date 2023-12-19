@@ -220,28 +220,6 @@ class DiffusionDecomposedLink(FairseqNATModel):
             links = logsumexp(log_multi_attention + log_gates.unsqueeze(2), dim=-1) # batch_size * seqlen * seqlen
 
         return links
-    
-    def sample_links(self, prev_output_tokens, encoder_out, tgt_tokens, t):
-            
-        for i in range(t):
-            features, _ = self.decoder.extract_features(
-                prev_output_tokens,
-                encoder_out=encoder_out,
-                embedding_copy=False,
-                t=torch.full((prev_output_tokens.shape[0],), i, device=prev_output_tokens.device, dtype=torch.long),
-            )
-        
-            links = self.extract_links(features, \
-                        prev_output_tokens, \
-                        self.decoder.link_positional, \
-                        self.decoder.query_linear, \
-                        self.decoder.key_linear, \
-                        self.decoder.gate_linear
-                )
-            if self.args.max_transition_length != -1:
-                links = self.restore_valid_links(links)
-            
-            path = links.max(dim=-1)[1] # batch * prelen
 
     def extract_features(self, prev_output_tokens, encoder_out, rand_seed, require_links=False):
         with torch_seed(rand_seed):
@@ -266,7 +244,7 @@ class DiffusionDecomposedLink(FairseqNATModel):
         return word_ins_out, links
 
     def forward(
-        self, src_tokens, src_lengths, prev_output_tokens, tgt_tokens, glat=None, glat_function=None, **kwargs
+        self, src_tokens, src_lengths, prev_output_tokens, tgt_tokens, t=None, diffusion_function=None, **kwargs
     ):
         # encoding
         encoder_out = self.encoder(src_tokens, src_lengths=src_lengths, **kwargs)
@@ -285,7 +263,7 @@ class DiffusionDecomposedLink(FairseqNATModel):
         if glat and tgt_tokens is not None:
             with torch.set_grad_enabled(glat.get('require_glance_grad', False)):
                 word_ins_out, links = self.extract_features(prev_output_tokens, encoder_out, rand_seed, require_links=True)
-                prev_output_tokens, tgt_tokens, glat_info = glat_function(self, word_ins_out, tgt_tokens, prev_output_tokens, glat, links=links)
+                prev_output_tokens, tgt_tokens, glat_info = diffusion_function(self, word_ins_out, tgt_tokens, prev_output_tokens, glat, links=links)
                 word_ins_out = None
 
         word_ins_out, links = self.extract_features(prev_output_tokens, encoder_out, rand_seed, require_links=True)

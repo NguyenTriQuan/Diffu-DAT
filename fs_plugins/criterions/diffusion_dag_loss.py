@@ -212,9 +212,7 @@ class DiffuDAGLoss(FairseqCriterion):
                 "require_glance_grad": False
             }
 
-        def diffusion_function(model, t, encoder_out, tgt_tokens, prev_output_tokens, links=None):
-            batch_size, prelen, _ = links.shape
-            tarlen = tgt_tokens.shape[1]
+        def diffusion_function(model, t, word_ins_out, tgt_tokens, prev_output_tokens, links=None):
             nonpad_positions = ~tgt_tokens.eq(model.pad)
             target_length = (nonpad_positions).sum(1)
             output_length = prev_output_tokens.ne(model.pad).sum(1)
@@ -225,17 +223,18 @@ class DiffuDAGLoss(FairseqCriterion):
                 tgt_tokens.ne(model.eos)
             )
 
+            word_ins_out, match = torch_dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
+            match = match.transpose(1, 2)
+
             if model.args.max_transition_length != -1:
                 links = model.restore_valid_links(links)
-            
-            path = links.argmax(dim=-1) # batch * prelen
-            oracle = tgt_tokens.gather(-1, path.clip(min=0))
+            path = torch_dag_best_alignment(match, links, output_length, target_length)
 
-            keep_word_mask = path >= 0
-            oracle.masked_fill(~keep_word_mask, 1)
+            oracle = tgt_tokens.gather(-1, path.clip(min=0))
+            oracle.masked_fill(path<0, 1)
             
             weight_t = 1
-            t = torch.full((prev_output_tokens.shape[0],), t, device=prev_output_tokens.device, dtype=torch.long)
+            t = torch.full((tgt_tokens.shape[0],), t, device=tgt_tokens.device, dtype=torch.long)
 
             # Absorbing diffusion
             x_t, x_0_ignore, mask = model.diffusion.q_sample(x_0=oracle, t=t, non_special_sym_mask=non_special_sym_mask) 
