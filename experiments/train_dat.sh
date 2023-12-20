@@ -2,7 +2,7 @@ data_name=iwslt14
 data_dir=data-bin/iwslt14.tokenized.de-en
 arch=glat_decomposed_link_base
 criterion=ard_dag_loss
-checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints_3/$data_name"_"$arch"_"$criterion
+checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints_4/$data_name"_"$arch"_"$criterion
 
 
 CUDA_VISIBLE_DEVICES=2 fairseq-train ${data_dir}  \
@@ -25,7 +25,7 @@ CUDA_VISIBLE_DEVICES=2 fairseq-train ${data_dir}  \
     --max-update 200000 --max-tokens-valid 4096 \
     --save-interval 1  --save-interval-updates 10000  \
     --seed 0 \
-    --valid-subset test \
+    --valid-subset valid \
     --validate-interval 1 --validate-interval-updates 10000 \
     --eval-bleu --eval-bleu-args '{"iter_decode_max_iter": 0, "iter_decode_with_beam": 1}' \
     --eval-bleu-detok moses --eval-bleu-remove-bpe --skip-invalid-size-inputs-valid-test \
