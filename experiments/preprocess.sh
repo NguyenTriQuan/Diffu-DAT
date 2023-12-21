@@ -10,8 +10,8 @@
 
 input_dir=data-bin/wmt14_ende        # directory of pre-processed text data
 data_dir=data-bin/wmt14_ende   # directory of the generated binarized data
-src=src                           # source suffix
-tgt=tgt                           # target suffix
+src=en                           # source suffix
+tgt=de                           # target suffix
 
 # The following command require files:
 #     train.${src} train.${tgt} valid.${src} valid.${tgt} test.${src} test.${tgt}
