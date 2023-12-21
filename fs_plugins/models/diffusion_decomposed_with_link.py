@@ -261,9 +261,6 @@ class DiffusionDecomposedLink(FairseqNATModel):
         # decoding
         word_ins_out, links = self.extract_features(prev_output_tokens, encoder_out, rand_seed, require_links=True)
         prev_output_tokens, tgt_tokens, glat_info = diffusion_function(self, t, word_ins_out, tgt_tokens, prev_output_tokens, links=links)
-        word_ins_out = None
-
-        word_ins_out, links = self.extract_features(prev_output_tokens, encoder_out, rand_seed, require_links=True)
 
         ret = {
             "word_ins": {

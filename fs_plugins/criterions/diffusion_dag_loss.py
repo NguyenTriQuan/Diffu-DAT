@@ -213,6 +213,7 @@ class DiffuDAGLoss(FairseqCriterion):
             }
 
         def diffusion_function(model, t, word_ins_out, tgt_tokens, prev_output_tokens, links=None):
+            batch_size, prelen, _ = links.shape
             nonpad_positions = ~tgt_tokens.eq(model.pad)
             target_length = (nonpad_positions).sum(1)
             output_length = prev_output_tokens.ne(model.pad).sum(1)
