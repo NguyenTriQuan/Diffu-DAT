@@ -11,7 +11,7 @@ python3 ./fs_plugins/scripts/average_checkpoints.py --inputs ${checkpoint_dir} \
 
 
 fairseq-generate ${data_dir} \
-    --gen-subset test --user-dir fs_plugins \
+    --gen-subset test --user-dir fs_plugins --task translation_lev_modified \
     --beam 1 \
     --remove-bpe --max-tokens 4096 --seed 0 \
     --path ${average_checkpoint_path} \
