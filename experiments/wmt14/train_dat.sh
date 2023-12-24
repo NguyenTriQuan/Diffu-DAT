@@ -1,7 +1,7 @@
 data_name=wmt14
 data_dir=data-bin/wmt14_ende
 arch=glat_decomposed_link_base
-criterion=ard_dag_loss
+criterion=nat_dag_loss
 checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/wmt14/$data_name"_"$arch"_"$criterion
 
 
