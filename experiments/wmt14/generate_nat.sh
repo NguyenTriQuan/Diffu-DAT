@@ -6,8 +6,8 @@ checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/wmt14/$data_name"_"$arch"_"$criter
 
 average_checkpoint_path=$checkpoint_dir"/average.pt"
 
-python3 ./fs_plugins/scripts/average_checkpoints.py --inputs ${checkpoint_dir} \
-                --max-metric --best-checkpoints-metric bleu --num-best-checkpoints-metric 5 --output ${average_checkpoint_path}
+# python3 ./fs_plugins/scripts/average_checkpoints.py --inputs ${checkpoint_dir} \
+#                 --max-metric --best-checkpoints-metric bleu --num-best-checkpoints-metric 5 --output ${average_checkpoint_path}
 
 
 fairseq-generate ${data_dir} \
@@ -17,5 +17,4 @@ fairseq-generate ${data_dir} \
     --model-overrides "{\"decode_strategy\":\"jointviterbi\",\"decode_viterbibeta\":1}" \
     --path ${average_checkpoint_path} \
     --skip-invalid-size-inputs-valid-test \
-    --eval-bleu-print-samples \
     # --model-overrides "{\"decode_strategy\":\"lookahead\",\"decode_upsample_scale\":8,\"decode_beta\":1}" \
