@@ -17,4 +17,6 @@ fairseq-generate ${data_dir} \
     --model-overrides "{\"decode_strategy\":\"jointviterbi\",\"decode_viterbibeta\":1}" \
     --path ${average_checkpoint_path} \
     --skip-invalid-size-inputs-valid-test \
-    # --model-overrides "{\"decode_strategy\":\"lookahead\",\"decode_upsample_scale\":8,\"decode_beta\":1}" \
+    --model-overrides "{\"decode_strategy\":\"lookahead\",\"decode_upsample_scale\":8,\"decode_beta\":1}" \
+    # --model-overrides "{\"decode_strategy\":\"jointviterbi\",\"decode_viterbibeta\":1}" \
+
