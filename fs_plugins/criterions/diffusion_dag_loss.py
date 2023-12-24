@@ -29,10 +29,9 @@ from fairseq import metrics, utils
 from fairseq.criterions import FairseqCriterion, register_criterion
 from torch.autograd import Function
 # from ..custom_ops import dag_loss, dag_best_alignment, dag_logsoftmax_gather_inplace, torch_dag_loss, torch_dag_best_alignment, torch_dag_logsoftmax_gather_inplace
-from ..custom_ops import torch_dag_loss, torch_dag_best_alignment, torch_dag_logsoftmax_gather_inplace
+from ..custom_ops import torch_dag_loss, torch_dag_best_alignment, torch_dag_logsoftmax_gather_inplace, torch_diffusion_dag_loss
 
 from .utilities import parse_anneal_argument, get_anneal_value
-from ..discrete_diffusion.reparam_absorbing_diffusion import ReparamAbsorbingDiffusion
 
 logger = logging.getLogger(__name__)
 
@@ -62,8 +61,6 @@ class DiffuDAGLoss(FairseqCriterion):
     @staticmethod
     def add_args(parser):
         """Add criterion-specific arguments to the parser."""
-        parser.add_argument("--num-diffusion-steps", type=float, default=0, help="DA-Transformer does not use label smoothing for now")
-
         parser.add_argument("--label-smoothing", type=float, default=0, help="DA-Transformer does not use label smoothing for now")
         parser.add_argument("--glat-p", type=str, default="0", help="Glancing probability. 0.5:0.1@200k indicates annealing p from 0.5 to 0.1 in 200k steps.")
         parser.add_argument("--glance-strategy", type=str, default=None, help='Glancing strategy. Possible values: "number-random" or "None" or "CMLM"')
@@ -204,56 +201,41 @@ class DiffuDAGLoss(FairseqCriterion):
 
         prev_output_tokens = model.initialize_output_tokens_by_tokens(src_tokens, tgt_tokens)
 
-        if self.glat_p == 0:
-            glat = None
-        else:
-            glat = {
-                "context_p": max(self.glat_p, 0),
-                "require_glance_grad": False
-            }
-
-        def diffusion_function(model, t, word_ins_out, tgt_tokens, prev_output_tokens, links=None):
-            batch_size, prelen, _ = links.shape
-            nonpad_positions = ~tgt_tokens.eq(model.pad)
-            target_length = (nonpad_positions).sum(1)
-            output_length = prev_output_tokens.ne(model.pad).sum(1)
-
-            non_special_sym_mask = (
-                tgt_tokens.ne(model.pad) & 
-                tgt_tokens.ne(model.bos) & 
-                tgt_tokens.ne(model.eos)
-            )
-
+        nonpad_positions = tgt_tokens.ne(model.pad)
+        target_length = (nonpad_positions).sum(1)
+        output_length = prev_output_tokens.ne(model.pad).sum(1)
+        ntokens = nonpad_positions.sum()
+        batch_size, prelen = prev_output_tokens.shape
+        mask = nonpad_positions
+        losses = []
+        
+        for t in range(model.args.num_diffusion_steps-1, 0):
+            reweighting_coeff = (1 - (t / model.args.num_diffusion_steps))
+            t = torch.full((tgt_tokens.shape[0],), t, device=tgt_tokens.device, dtype=torch.long)   
+            outputs = model(src_tokens, src_lengths, prev_output_tokens, tgt_tokens, t)
+            word_ins_out, links = outputs["word_ins"].get("out"), outputs["links"]
             word_ins_out, match = torch_dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
             match = match.transpose(1, 2)
-
+            matchmask = torch.zeros(batch_size, tarlen + 1, prelen, device=match.device, dtype=torch.bool).scatter_(1, path.unsqueeze(1) + 1, 1)[:, 1:]
+            glat_prev_mask = keep_word_mask.unsqueeze(1)
+            match_all = match_all.masked_fill(glat_prev_mask, 0) + match_all.masked_fill(~matchmask, float("-inf")).masked_fill(~glat_prev_mask, 0).detach()
+        
             if model.args.max_transition_length != -1:
                 links = model.restore_valid_links(links)
-            path = torch_dag_best_alignment(match, links, output_length, target_length)
+            loss_result = torch_diffusion_dag_loss(match, links, output_length, target_length, mask)
+            invalid_masks = loss_result.isinf().logical_or(loss_result.isnan())
+            loss_result.masked_fill_(invalid_masks, 0)
+            invalid_nsentences = invalid_masks.sum().detach()
 
-            oracle = tgt_tokens.gather(-1, path.clip(min=0))
-            oracle.masked_fill(path<0, 1)
-            
-            weight_t = 1
-            t = torch.full((tgt_tokens.shape[0],), t, device=tgt_tokens.device, dtype=torch.long)
-
+            loss = -(loss_result / target_length).mean()
+            nll_loss = loss.detach()
+            loss_nofactor = loss
+            loss = loss * reweighting_coeff
             # Absorbing diffusion
-            x_t, x_0_ignore, mask = model.diffusion.q_sample(x_0=oracle, t=t, non_special_sym_mask=non_special_sym_mask) 
-
-            diffusion_dict = {
-                "x_0" : tgt_tokens,
-                "x_t" : x_t,
-                "x_0_ignore" : x_0_ignore,
-                "masks" : mask,
-                "t": t,
-                "weight_t": weight_t
-            }
-
-            return diffusion_dict
-
-        outputs = model(src_tokens, src_lengths, prev_output_tokens, tgt_tokens, glat, diffusion_function)
-
-        losses = []
+            prev_output_tokens, mask = model.diffusion.q_sample(x_0=tgt_tokens, t=t-1, non_special_sym_mask=nonpad_positions) 
+            path = torch_dag_best_alignment(match, links, output_length, target_length)
+            prev_output_tokens = prev_output_tokens.gather(-1, path.clip(min=0))
+            prev_output_tokens.masked_fill(path<0, model.diffusion.pad_id)
 
         # DAG loss
         _losses = self._compute_dag_loss(

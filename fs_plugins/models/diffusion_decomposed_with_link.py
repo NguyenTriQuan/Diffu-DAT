@@ -33,8 +33,7 @@ from fairseq.modules import (
 from fairseq.modules.transformer_sentence_encoder import init_bert_params
 from fairseq.models.nat.nonautoregressive_transformer import NATransformerDecoder
 from contextlib import contextmanager
-from fs_plugins.discrete_diffusion.reparam_absorbing_diffusion import ReparamAbsorbingDiffusion
-# from ..discrete_diffusion.reparam_absorbing_diffusion import ReparamAbsorbingDiffusion
+from fs_plugins.discrete_diffusion.dat_absorbing_diffusion import ReparamAbsorbingDiffusion
 from fs_plugins.time_sampler import UniformSampler
 
 logger = logging.getLogger(__name__)
@@ -67,9 +66,9 @@ class DiffusionDecomposedLink(FairseqNATModel):
         super().__init__(args, encoder, decoder)
         self.init_beam_search()
         self.diffusion = ReparamAbsorbingDiffusion(
-            self.args.num_diffusion_timesteps,
+            args.num_diffusion_timesteps,
             self.unk, 
-            self.args.reweighting_type,
+            args.reweighting_type,
             True,
             self.pad, self.bos, self.eos
         )
@@ -221,12 +220,13 @@ class DiffusionDecomposedLink(FairseqNATModel):
 
         return links
 
-    def extract_features(self, prev_output_tokens, encoder_out, rand_seed, require_links=False):
+    def extract_features(self, prev_output_tokens, encoder_out, rand_seed, require_links=False, t=None):
         with torch_seed(rand_seed):
             features, _ = self.decoder.extract_features(
                 prev_output_tokens,
                 encoder_out=encoder_out,
-                embedding_copy=False
+                embedding_copy=False,
+                t=t,
             )
             # word_ins_out = self.decoder.output_layer(features)
             word_ins_out = self.decoder.output_projection(features)
@@ -244,7 +244,7 @@ class DiffusionDecomposedLink(FairseqNATModel):
         return word_ins_out, links
 
     def forward(
-        self, src_tokens, src_lengths, prev_output_tokens, tgt_tokens, t=None, diffusion_function=None, **kwargs
+        self, src_tokens, src_lengths, prev_output_tokens, tgt_tokens, t, **kwargs
     ):
         # encoding
         encoder_out = self.encoder(src_tokens, src_lengths=src_lengths, **kwargs)
@@ -259,14 +259,12 @@ class DiffusionDecomposedLink(FairseqNATModel):
 
         rand_seed = random.randint(0, 19260817)
         # decoding
-        word_ins_out, links = self.extract_features(prev_output_tokens, encoder_out, rand_seed, require_links=True)
-        prev_output_tokens, tgt_tokens, glat_info = diffusion_function(self, t, word_ins_out, tgt_tokens, prev_output_tokens, links=links)
+        word_ins_out, links = self.extract_features(prev_output_tokens, encoder_out, rand_seed, require_links=True, t=t)
 
         ret = {
             "word_ins": {
                 "out": word_ins_out,
                 "tgt": tgt_tokens,
-                "mask": tgt_tokens.ne(self.pad),
                 "nll_loss": True,
             }
         }
@@ -277,8 +275,6 @@ class DiffusionDecomposedLink(FairseqNATModel):
             "tgt": length_tgt,
             "factor": self.decoder.length_loss_factor,
         }
-        if glat_info is not None:
-            ret.update(glat_info)
         return ret
 
 
@@ -532,7 +528,7 @@ class DiffusionLinkDecoder(NATransformerDecoder):
         self.init_link_feature(args)
         self.time_pos_emb = TimestepEmbedding(
             args.decoder_embed_dim, 
-            args.num_diffusion_timesteps+1, 
+            args.num_diffusion_timesteps, 
             timestep_emb_type='learnable'
         )
 

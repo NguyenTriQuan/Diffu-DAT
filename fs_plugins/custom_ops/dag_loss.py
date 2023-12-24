@@ -361,6 +361,31 @@ def torch_dag_logsoftmax_gather_inplace(word_ins_out, select_idx):
 def modified_kl_div(targets, outputs, dim=-1):
     return -torch.sum(targets * torch.log(outputs), dim=dim)
 
+@jit.script
+def loop_function_noempty_diffusion(last_f: Tensor, links: Tensor, match: Tensor) -> Tensor:
+    f_next = logsumexp_keepdim(last_f + links, 1) # batch * 1 * prelen
+    f_next = f_next.transpose(1, 2) + match # batch * prelen * 1
+    return f_next
+
+def torch_diffusion_dag_loss(match_all, links, output_length, target_length, mask):
+    match_all = match_all.transpose(1, 2)
+    batch_size, prelen, tarlen = match_all.shape
+    assert links.shape[1] == links.shape[2], "links should be batch_size * prelen * prelen"
+
+    f_arr = []
+    f_init = torch.zeros(batch_size, prelen, 1, dtype=match_all.dtype, device=match_all.device).fill_(float("-inf"))
+    f_init[:, 0, 0] = match_all[:, 0, 0]
+    f_arr.append(f_init)
+
+    match_all_chunk = torch.chunk(match_all, tarlen, -1) # k * [batch * prelen * 1]
+
+    for k in range(1, tarlen):
+        f_now = loop_function_noempty_diffusion(f_arr[-1], links, match_all_chunk[k]).masked_fill(~mask[:, k].view(batch_size, 1, 1), 0)
+        f_arr.append(f_now)
+
+    loss_result = torch.cat(f_arr, -1)[range(batch_size), output_length - 1, target_length - 1]
+
+    return loss_result
 
 ####################### For Config Tuning ######################
 # The below codes are only used for testing
