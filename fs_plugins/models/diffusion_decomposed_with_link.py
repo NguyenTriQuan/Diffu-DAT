@@ -66,14 +66,14 @@ class DiffusionDecomposedLink(FairseqNATModel):
         super().__init__(args, encoder, decoder)
         self.init_beam_search()
         self.diffusion = ReparamAbsorbingDiffusion(
-            args.num_diffusion_timesteps,
+            args.num_diffusion_steps,
             self.unk, 
             args.reweighting_type,
             True,
             self.pad, self.bos, self.eos
         )
         
-        self.time_sampler = UniformSampler(self.args.num_diffusion_timesteps)
+        self.time_sampler = UniformSampler(self.args.num_diffusion_steps)
 
     def init_beam_search(self):
         if self.args.decode_strategy == "beamsearch":
