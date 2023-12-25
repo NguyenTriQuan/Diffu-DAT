@@ -216,7 +216,7 @@ class DiffuDAGLoss(FairseqCriterion):
         output_length = prev_output_tokens.ne(model.pad).sum(1)
         ntokens = nonpad_positions.sum()
         batch_size, prelen = prev_output_tokens.shape
-        mask = torch.rand_like(prev_output_tokens.float()) < 1
+        mask = torch.rand_like(tgt_tokens.float()) < 1
         mask = mask & nonpad_positions
 
         dag_nll_loss = 0
