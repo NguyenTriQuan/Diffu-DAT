@@ -244,18 +244,8 @@ class DiffusionDecomposedLink(FairseqNATModel):
         return word_ins_out, links
 
     def forward(
-        self, src_tokens, src_lengths, prev_output_tokens, tgt_tokens, t, **kwargs
+        self, encoder_out, prev_output_tokens, tgt_tokens, t, **kwargs
     ):
-        # encoding
-        encoder_out = self.encoder(src_tokens, src_lengths=src_lengths, **kwargs)
-
-        # length prediction
-        length_out = self.decoder.forward_length(
-            normalize=False, encoder_out=encoder_out
-        )
-        length_tgt = self.decoder.forward_length_prediction(
-            length_out, encoder_out, tgt_tokens
-        )
 
         rand_seed = random.randint(0, 19260817)
         # decoding
@@ -269,12 +259,6 @@ class DiffusionDecomposedLink(FairseqNATModel):
             }
         }
         ret['links'] = links
-
-        ret["length"] = {
-            "out": length_out,
-            "tgt": length_tgt,
-            "factor": self.decoder.length_loss_factor,
-        }
         return ret
 
 

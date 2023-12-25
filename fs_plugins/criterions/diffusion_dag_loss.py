@@ -198,78 +198,86 @@ class DiffuDAGLoss(FairseqCriterion):
 
         if sample.get("update_num", None) is not None: # in training
             self.set_update_num(sample['update_num'])
+        # encoding
+        encoder_out = model.encoder(src_tokens, src_lengths=src_lengths)
 
-        prev_output_tokens = model.initialize_output_tokens_by_tokens(src_tokens, tgt_tokens)
+        # length prediction
+        length_out = model.decoder.forward_length(
+            normalize=False, encoder_out=encoder_out
+        )
+        length_tgt = model.decoder.forward_length_prediction(
+            length_out, encoder_out, tgt_tokens
+        )
 
+        prev_output_tokens_ = model.initialize_output_tokens_by_tokens(src_tokens, tgt_tokens)
+        prev_output_tokens = prev_output_tokens_
         nonpad_positions = tgt_tokens.ne(model.pad)
         target_length = (nonpad_positions).sum(1)
         output_length = prev_output_tokens.ne(model.pad).sum(1)
         ntokens = nonpad_positions.sum()
         batch_size, prelen = prev_output_tokens.shape
-        mask = nonpad_positions
-        losses = []
+        mask = torch.rand_like(prev_output_tokens.float()) < 1
+        mask = mask & nonpad_positions
+
+        dag_nll_loss = 0
+        nsentences = 0
+        ntokens = 0
+        invalid_nsentences = 0
+        loss_nofactor = 0
+        loss = 0
         
-        for t in range(model.args.num_diffusion_steps-1, 0):
+        for t_ in range(0, model.args.num_diffusion_steps):
+            t = model.args.num_diffusion_steps - t_ - 1
             reweighting_coeff = (1 - (t / model.args.num_diffusion_steps))
             t = torch.full((tgt_tokens.shape[0],), t, device=tgt_tokens.device, dtype=torch.long)   
-            outputs = model(src_tokens, src_lengths, prev_output_tokens, tgt_tokens, t)
+            outputs = model(encoder_out, prev_output_tokens, tgt_tokens, t)
             word_ins_out, links = outputs["word_ins"].get("out"), outputs["links"]
             word_ins_out, match = torch_dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
             match = match.transpose(1, 2)
-            matchmask = torch.zeros(batch_size, tarlen + 1, prelen, device=match.device, dtype=torch.bool).scatter_(1, path.unsqueeze(1) + 1, 1)[:, 1:]
-            glat_prev_mask = keep_word_mask.unsqueeze(1)
-            match_all = match_all.masked_fill(glat_prev_mask, 0) + match_all.masked_fill(~matchmask, float("-inf")).masked_fill(~glat_prev_mask, 0).detach()
-        
+
+            # if t != model.args.num_diffusion_steps-1:
+            #     matchmask = torch.zeros(batch_size, target_length + 1, prelen, device=match.device, dtype=torch.bool).scatter_(1, path.unsqueeze(1) + 1, 1)[:, 1:]
+            #     prev_mask = mask.unsqueeze(1)
+            #     match = match.masked_fill(prev_mask, 0) + match.masked_fill(~matchmask, float("-inf")).masked_fill(~prev_mask, 0).detach()
+
+            match = match.masked_fill(mask.unsqueeze(1), 0)
+
             if model.args.max_transition_length != -1:
                 links = model.restore_valid_links(links)
-            loss_result = torch_diffusion_dag_loss(match, links, output_length, target_length, mask)
+            loss_result = torch_dag_loss(match, links, output_length, target_length)
             invalid_masks = loss_result.isinf().logical_or(loss_result.isnan())
             loss_result.masked_fill_(invalid_masks, 0)
-            invalid_nsentences = invalid_masks.sum().detach()
+            invalid_nsentences += invalid_masks.sum().detach()
 
-            loss = -(loss_result / target_length).mean()
-            nll_loss = loss.detach()
-            loss_nofactor = loss
-            loss = loss * reweighting_coeff
+            loss_result = -(loss_result / target_length).mean()
+            dag_nll_loss += loss_result.detach()
+            loss_nofactor += loss_result
+            loss += loss_result * reweighting_coeff
             # Absorbing diffusion
             prev_output_tokens, mask = model.diffusion.q_sample(x_0=tgt_tokens, t=t-1, non_special_sym_mask=nonpad_positions) 
             path = torch_dag_best_alignment(match, links, output_length, target_length)
             prev_output_tokens = prev_output_tokens.gather(-1, path.clip(min=0))
-            prev_output_tokens.masked_fill(path<0, model.diffusion.pad_id)
+            prev_output_tokens.masked_fill_(path<0, model.diffusion.mask_idx)
 
-        # DAG loss
-        _losses = self._compute_dag_loss(
-            outputs["word_ins"].get("out"),
-            prev_output_tokens.ne(self.task.tgt_dict.pad()),
-            outputs["word_ins"].get("tgt"),
-            outputs["word_ins"].get("mask", None),
-            outputs["links"],
-            name="dag-loss",
-            factor=1,
-            matchmask=outputs.get('matchmask', None),
-            keep_word_mask=outputs.get('keep_word_mask', None),
-            model=model
-        )
-
-        losses += [_losses]
-        dag_nll_loss = _losses.get("nll_loss", 0.0)
-        nsentences = _losses["nsentences"]
-        ntokens = _losses["ntokens"]
-        nvalidtokens = _losses["nvalidtokens"]
-        invalid_nsentences = _losses["invalid_nsentences"]
-
+        dag_nll_loss /= model.args.num_diffusion_steps
+        nsentences /= model.args.num_diffusion_steps
+        ntokens /= model.args.num_diffusion_steps
+        nvalidtokens = tgt_tokens.shape[0]
+        invalid_nsentences /= model.args.num_diffusion_steps
+        loss_nofactor /= model.args.num_diffusion_steps
         #length
         _losses = self._compute_loss(
-            outputs["length"].get("out"),
-            outputs["length"].get("tgt"),
+            length_out,
+            length_tgt,
             None,
             0,
             name="length-loss",
-            factor=outputs["length"]["factor"], )
-        losses += [_losses]
+            factor=model.decoder.length_loss_factor, )
+
         length_nll_loss = _losses.get("nll_loss", 0.0)
 
-        loss = sum(l["loss"] for l in losses)
+        loss += _losses["loss"]
+        loss = sum(loss)
 
         sample_size = 1
         logging_output = {
@@ -285,12 +293,16 @@ class DiffuDAGLoss(FairseqCriterion):
             "glat_keep": outputs.get("glat_keep", 0),
         }
 
-        for l in losses:
-            logging_output[l["name"]] = (
-                utils.item(l["loss_nofactor"])
-                if reduce
-                else l["loss_nofactor"]
-            )
+        logging_output["length-loss"] = (
+            utils.item(_losses["loss_nofactor"])
+            if reduce
+            else _losses["loss_nofactor"]
+        )
+        logging_output["dag-loss"] = (
+            utils.item(loss_nofactor)
+            if reduce
+            else loss_nofactor
+        )
 
         # gpu_tracker.track()
         return loss, sample_size, logging_output

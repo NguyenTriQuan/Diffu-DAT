@@ -1,7 +1,7 @@
 data_name=iwslt14
 data_dir=data-bin/iwslt14.tokenized.de-en
-arch=glat_decomposed_link_base
-criterion=ard_dag_loss
+arch=diffusion_decomposed_link_base
+criterion=diffusion_dag_loss
 checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints_4/$data_name"_"$arch"_"$criterion
 
 
