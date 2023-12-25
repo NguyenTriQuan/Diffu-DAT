@@ -309,9 +309,10 @@ class DiffuDAGLoss(FairseqCriterion):
     @staticmethod
     def reduce_metrics(logging_outputs) -> None:
         """Aggregate logging outputs from data parallel training."""
-        sample_size = utils.item(
-            sum(log.get("sample_size", 0) for log in logging_outputs)
-        )  # each batch is 1
+        # sample_size = utils.item(
+        #     sum(log.get("sample_size", 0) for log in logging_outputs)
+        # )  # each batch is 1
+        sample_size = 1
         loss = utils.item(sum(log.get("loss", 0) for log in logging_outputs))  # token-level loss
 
         ntokens = sum(log.get('ntokens', 0) for log in logging_outputs)
