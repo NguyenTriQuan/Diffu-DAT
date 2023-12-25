@@ -240,11 +240,11 @@ class DiffuDAGLoss(FairseqCriterion):
             #     prev_mask = mask.unsqueeze(1)
             #     match = match.masked_fill(prev_mask, 0) + match.masked_fill(~matchmask, float("-inf")).masked_fill(~prev_mask, 0).detach()
 
-            match = match.masked_fill(mask.unsqueeze(1), 0)
+            # match = match.masked_fill(mask.unsqueeze(1), 0)
 
             if model.args.max_transition_length != -1:
                 links = model.restore_valid_links(links)
-            loss_result = torch_dag_loss(match, links, output_length, target_length)
+            loss_result = torch_diffusion_dag_loss(match, links, output_length, target_length, mask)
             invalid_masks = loss_result.isinf().logical_or(loss_result.isnan())
             loss_result.masked_fill_(invalid_masks, 0)
             invalid_nsentences += invalid_masks.sum().detach()
