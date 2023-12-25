@@ -116,7 +116,7 @@ class DiffusionDecomposedLink(FairseqNATModel):
             help="weights on the length prediction loss",
         )
 
-        parser.add_argument('--num-diffusion-timesteps', type=int, default=50, help="number of diffusion steps")
+        parser.add_argument('--num-diffusion-steps', type=int, default=10, help="number of diffusion steps")
         parser.add_argument('--reweighting-type', type=str, default="linear", help="The type of reweighting for the cross-entropy loss function.")
         parser.add_argument('--time-sampler-type', type=str, default="uniform", help="Sample time step for training diffusion.")
 
