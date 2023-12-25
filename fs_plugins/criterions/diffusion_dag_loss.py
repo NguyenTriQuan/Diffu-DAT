@@ -28,6 +28,7 @@ import torch.nn.functional as F
 from fairseq import metrics, utils
 from fairseq.criterions import FairseqCriterion, register_criterion
 from torch.autograd import Function
+import random
 # from ..custom_ops import dag_loss, dag_best_alignment, dag_logsoftmax_gather_inplace, torch_dag_loss, torch_dag_best_alignment, torch_dag_logsoftmax_gather_inplace
 from ..custom_ops import torch_dag_loss, torch_dag_best_alignment, torch_dag_logsoftmax_gather_inplace, torch_diffusion_dag_loss
 
@@ -225,13 +226,14 @@ class DiffuDAGLoss(FairseqCriterion):
         invalid_nsentences = 0
         loss_nofactor = 0
         loss = 0
+        rand_seed = random.randint(0, 19260817)
         
         for t_ in range(0, model.args.num_diffusion_steps):
             t = model.args.num_diffusion_steps - t_ - 1
             reweighting_coeff = (1 - (t / model.args.num_diffusion_steps))
             t = torch.full((tgt_tokens.shape[0],), t, device=tgt_tokens.device, dtype=torch.long)   
-            outputs = model(encoder_out, prev_output_tokens, tgt_tokens, t)
-            word_ins_out, links = outputs["word_ins"].get("out"), outputs["links"]
+            word_ins_out, links = model.extract_features(prev_output_tokens, encoder_out, rand_seed, require_links=True, t=t)
+
             word_ins_out, match = torch_dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
             match = match.transpose(1, 2)
 
@@ -252,7 +254,9 @@ class DiffuDAGLoss(FairseqCriterion):
             loss_result = -(loss_result / target_length).mean()
             dag_nll_loss += loss_result.detach()
             loss_nofactor += loss_result
-            loss += loss_result * reweighting_coeff
+            loss_result = reweighting_coeff
+            loss_result.backward()
+            loss += loss_result
             # Absorbing diffusion
             prev_output_tokens, mask = model.diffusion.q_sample(x_0=tgt_tokens, t=t-1, non_special_sym_mask=nonpad_positions) 
             path = torch_dag_best_alignment(match, links, output_length, target_length)
@@ -304,7 +308,7 @@ class DiffuDAGLoss(FairseqCriterion):
         )
 
         # gpu_tracker.track()
-        return loss, sample_size, logging_output
+        return _losses["loss"], sample_size, logging_output
 
     @staticmethod
     def reduce_metrics(logging_outputs) -> None:
