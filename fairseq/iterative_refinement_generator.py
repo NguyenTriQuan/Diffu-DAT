@@ -109,7 +109,7 @@ class IterativeRefinementGenerator(object):
         if not self.retain_dropout:
             for model in models:
                 model.eval()
-
+        self.reranking = True
         model, reranker = models[0], models[0]
         if self.reranking:
             assert len(models) > 1, "Assuming the last checkpoint is the reranker"
