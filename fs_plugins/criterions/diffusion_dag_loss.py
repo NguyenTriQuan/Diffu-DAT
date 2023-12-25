@@ -220,8 +220,8 @@ class DiffuDAGLoss(FairseqCriterion):
         mask = mask & nonpad_positions
 
         dag_nll_loss = 0
-        nsentences = 0
-        ntokens = 0
+        nsentences = tgt_tokens.shape[0]
+        nvalidtokens = nonpad_positions
         invalid_nsentences = 0
         loss_nofactor = 0
         loss = 0
@@ -264,7 +264,6 @@ class DiffuDAGLoss(FairseqCriterion):
         # ntokens /= model.args.num_diffusion_steps
         # invalid_nsentences /= model.args.num_diffusion_steps
         # loss_nofactor /= model.args.num_diffusion_steps
-        nvalidtokens = tgt_tokens.shape[0]
         #length
         _losses = self._compute_loss(
             length_out,
