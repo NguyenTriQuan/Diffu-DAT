@@ -512,7 +512,7 @@ class DiffusionLinkDecoder(NATransformerDecoder):
         self.init_link_feature(args)
         self.time_pos_emb = TimestepEmbedding(
             args.decoder_embed_dim, 
-            args.num_diffusion_timesteps, 
+            args.num_diffusion_steps, 
             timestep_emb_type='learnable'
         )
 
