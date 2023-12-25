@@ -308,6 +308,7 @@ class DiffuDAGLoss(FairseqCriterion):
 
     @staticmethod
     def reduce_metrics(logging_outputs) -> None:
+        return
         """Aggregate logging outputs from data parallel training."""
         sample_size = utils.item(
             sum(log.get("sample_size", 0) for log in logging_outputs)
