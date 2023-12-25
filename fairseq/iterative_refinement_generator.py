@@ -111,14 +111,14 @@ class IterativeRefinementGenerator(object):
                 model.eval()
         self.reranking = True
         model, reranker = models[0], models[0]
-        if self.reranking:
-            assert len(models) > 1, "Assuming the last checkpoint is the reranker"
-            assert (
-                self.beam_size > 1
-            ), "Reranking requires multiple translation for each example"
+        # if self.reranking:
+        #     assert len(models) > 1, "Assuming the last checkpoint is the reranker"
+        #     assert (
+        #         self.beam_size > 1
+        #     ), "Reranking requires multiple translation for each example"
 
-            reranker = models[-1]
-            models = models[:-1]
+        #     reranker = models[-1]
+        #     models = models[:-1]
 
         if len(models) > 1 and hasattr(model, "enable_ensemble"):
             assert model.allow_ensemble, "{} does not support ensembling".format(
