@@ -259,12 +259,12 @@ class DiffuDAGLoss(FairseqCriterion):
             prev_output_tokens = prev_output_tokens.gather(-1, path.clip(min=0))
             prev_output_tokens.masked_fill_(path<0, model.diffusion.mask_idx)
 
-        dag_nll_loss /= model.args.num_diffusion_steps
-        nsentences /= model.args.num_diffusion_steps
-        ntokens /= model.args.num_diffusion_steps
+        # dag_nll_loss /= model.args.num_diffusion_steps
+        # nsentences /= model.args.num_diffusion_steps
+        # ntokens /= model.args.num_diffusion_steps
+        # invalid_nsentences /= model.args.num_diffusion_steps
+        # loss_nofactor /= model.args.num_diffusion_steps
         nvalidtokens = tgt_tokens.shape[0]
-        invalid_nsentences /= model.args.num_diffusion_steps
-        loss_nofactor /= model.args.num_diffusion_steps
         #length
         _losses = self._compute_loss(
             length_out,
