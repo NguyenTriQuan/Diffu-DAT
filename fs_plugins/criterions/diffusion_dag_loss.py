@@ -308,7 +308,6 @@ class DiffuDAGLoss(FairseqCriterion):
 
     @staticmethod
     def reduce_metrics(logging_outputs) -> None:
-        return
         """Aggregate logging outputs from data parallel training."""
         sample_size = utils.item(
             sum(log.get("sample_size", 0) for log in logging_outputs)
@@ -318,7 +317,7 @@ class DiffuDAGLoss(FairseqCriterion):
         ntokens = sum(log.get('ntokens', 0) for log in logging_outputs)
         nvalidtokens = sum(log.get('nvalidtokens', 0) for log in logging_outputs)
         nsentences = sum(log.get('nsentences', 0) for log in logging_outputs)
-        invalid_nsentences = sum(log.get('invalid_nsentences', 0) for log in logging_outputs)
+        # invalid_nsentences = sum(log.get('invalid_nsentences', 0) for log in logging_outputs)
         loss = utils.item(sum(log.get("loss", 0) for log in logging_outputs))  # token-level loss
         glat_acc = utils.item(sum(log.get("glat_acc", 0) for log in logging_outputs))
         glat_keep = utils.item(sum(log.get("glat_keep", 0) for log in logging_outputs))
@@ -327,9 +326,9 @@ class DiffuDAGLoss(FairseqCriterion):
             "ntokens": utils.item(ntokens),
             "nsentences": utils.item(nsentences),
             "nvalidtokens": utils.item(nvalidtokens),
-            "invalid_nsentences": utils.item(invalid_nsentences),
+            # "invalid_nsentences": utils.item(invalid_nsentences),
             'tokens_perc': utils.item(nvalidtokens / ntokens),
-            'sentences_perc': 1 - utils.item(invalid_nsentences / nsentences),
+            # 'sentences_perc': 1 - utils.item(invalid_nsentences / nsentences),
         }
         res["loss"] = loss / sample_size
         res["glat_acc"] = glat_acc / sample_size
