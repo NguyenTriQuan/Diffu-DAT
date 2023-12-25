@@ -254,7 +254,7 @@ class DiffuDAGLoss(FairseqCriterion):
             loss_result = -(loss_result / target_length).mean()
             dag_nll_loss += loss_result.detach()
             loss_nofactor += loss_result
-            loss_result = reweighting_coeff
+            loss_result = reweighting_coeff * loss_result
             loss_result.backward()
             loss += loss_result
             # Absorbing diffusion
