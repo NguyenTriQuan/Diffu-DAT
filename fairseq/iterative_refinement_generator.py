@@ -110,7 +110,7 @@ class IterativeRefinementGenerator(object):
             for model in models:
                 model.eval()
 
-        model, reranker = models[0], None
+        model, reranker = models[0], models[0]
         if self.reranking:
             assert len(models) > 1, "Assuming the last checkpoint is the reranker"
             assert (
@@ -343,7 +343,7 @@ class IterativeRefinementGenerator(object):
             reranker_encoder_out, length_beam_order
         )
         reranking_scores = reranker.get_normalized_probs(
-            reranker.decoder(final_output_tokens[:, :-1], reranker_encoder_out),
+            reranker.decoder(prev_output_tokens=final_output_tokens[:, :-1], encoder_out=reranker_encoder_out, full_context_alignment=False),
             True,
             None,
         )
