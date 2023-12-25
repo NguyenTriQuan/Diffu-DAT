@@ -293,8 +293,8 @@ class DiffuDAGLoss(FairseqCriterion):
             "nsentences": nsentences,
             "invalid_nsentences": invalid_nsentences,
             "sample_size": sample_size,
-            "glat_acc": outputs.get("glat_accu", 0),
-            "glat_keep": outputs.get("glat_keep", 0),
+            "glat_acc": 0,
+            "glat_keep": 0,
         }
 
         logging_output["length-loss"] = (
