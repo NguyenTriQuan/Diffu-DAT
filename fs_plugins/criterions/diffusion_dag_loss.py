@@ -277,7 +277,7 @@ class DiffuDAGLoss(FairseqCriterion):
         length_nll_loss = _losses.get("nll_loss", 0.0)
 
         loss += _losses["loss"]
-        loss = sum(loss)
+        # loss = sum(loss)
 
         sample_size = 1
         logging_output = {
