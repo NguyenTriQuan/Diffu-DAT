@@ -7,8 +7,8 @@ checkpoint_dir=/cm/archive/quannt40/Diffu-DAT/checkpoints/$data_name"_"$arch
 
 average_checkpoint_path=$checkpoint_dir"/average.pt"
 
-# python3 ./fs_plugins/scripts/average_checkpoints.py --inputs ${checkpoint_dir} \
-#                 --max-metric --best-checkpoints-metric bleu --num-best-checkpoints-metric 5 --output ${average_checkpoint_path}
+python3 ./fs_plugins/scripts/average_checkpoints.py --inputs ${checkpoint_dir} \
+                --max-metric --best-checkpoints-metric bleu --num-best-checkpoints-metric 5 --output ${average_checkpoint_path}
 
 
 CUDA_VISIBLE_DEVICES=7 fairseq-generate ${data_dir} \
