@@ -200,7 +200,8 @@ class DiffuDAGLoss(FairseqCriterion):
         if sample.get("update_num", None) is not None: # in training
             self.set_update_num(sample['update_num'])
         # encoding
-        encoder_out = model.encoder(src_tokens, src_lengths=src_lengths)
+        with torch.no_grad():
+            encoder_out = model.encoder(src_tokens, src_lengths=src_lengths)
 
         # length prediction
         length_out = model.decoder.forward_length(
