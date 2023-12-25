@@ -340,15 +340,15 @@ class DiffuDAGLoss(FairseqCriterion):
                 key, value, sample_size, round=3
             )
 
-        for key in logging_outputs[0]:
-            if key[-5:] == "-loss":
-                val = utils.item(sum(log.get(key, 0) for log in logging_outputs))
-                metrics.log_scalar(
-                    key[:-5],
-                    val / sample_size if sample_size > 0 else 0.0,
-                    sample_size,
-                    round=3,
-                )
+        # for key in logging_outputs[0]:
+        #     if key[-5:] == "-loss":
+        #         val = utils.item(sum(log.get(key, 0) for log in logging_outputs))
+        #         metrics.log_scalar(
+        #             key[:-5],
+        #             val / sample_size if sample_size > 0 else 0.0,
+        #             sample_size,
+        #             round=3,
+        #         )
 
     @staticmethod
     def logging_outputs_can_be_summed() -> bool:
