@@ -325,9 +325,9 @@ class DiffuDAGLoss(FairseqCriterion):
         res = {
             "ntokens": utils.item(ntokens),
             "nsentences": utils.item(nsentences),
-            "nvalidtokens": utils.item(nvalidtokens),
+            # "nvalidtokens": utils.item(nvalidtokens),
             # "invalid_nsentences": utils.item(invalid_nsentences),
-            'tokens_perc': utils.item(nvalidtokens / ntokens),
+            # 'tokens_perc': utils.item(nvalidtokens / ntokens),
             # 'sentences_perc': 1 - utils.item(invalid_nsentences / nsentences),
         }
         res["loss"] = loss / sample_size
