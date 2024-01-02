@@ -274,16 +274,14 @@ class DiffuDAGLoss(FairseqCriterion):
         loss_result.masked_fill_(invalid_masks, 0)
         invalid_nsentences = invalid_masks.sum().detach()
 
-        loss_result = -(loss_result / target_length).mean()
+        reweighting_coeff = (1 - (t / model.diffusion.num_timesteps))
+        loss_result = -(reweighting_coeff * loss_result / target_length).mean()
         dag_nll_loss = loss_result.detach()
         loss_nofactor = loss_result
-        reweighting_coeff = (1 - (t / model.diffusion.num_timesteps))
-        loss_result = reweighting_coeff * loss_result
         loss = loss_result
 
         nvalidtokens = nonpad_positions.sum()
         nsentences = batch_size
-
         
         # dag_nll_loss = 0
         # nsentences = tgt_tokens.shape[0]
