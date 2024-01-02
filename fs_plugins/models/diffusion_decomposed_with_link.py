@@ -402,6 +402,39 @@ class DiffusionDecomposedLink(FairseqNATModel):
             output_seqlen = max([len(res) for res in unpad_output_tokens])
             output_tokens = [res + [self.tgt_dict.pad_index] * (output_seqlen - len(res)) for res in unpad_output_tokens]
             output_tokens = torch.tensor(output_tokens, device=decoder_out.output_tokens.device, dtype=decoder_out.output_tokens.dtype)
+        elif self.args.decode_strategy in ["ar_lookahead"]:
+            output_length = torch.sum(output_tokens.ne(self.tgt_dict.pad_index), dim=-1).tolist()
+            links_idx = (links + unreduced_logits.unsqueeze(1) * self.args.decode_beta).max(dim=-1)[1].cpu().tolist() # batch * prelen
+
+            unpad_output_tokens = []
+            for i, length in enumerate(output_length):
+                last = unreduced_tokens[i][0]
+                j = 0
+                res = [last]
+                count = 0
+                while j != length - 1:
+                    j = links_idx[i][j]
+                    now_token = unreduced_tokens[i][j]
+                    if now_token != self.tgt_dict.pad_index and now_token != last:
+                        res.append(now_token)
+                    last = now_token
+                    if count == 5:
+                        count = 0
+                        prev_tokens = torch.tensor(res).unsqueeze(0)
+                        with torch_seed(rand_seed):
+                            features, _ = self.decoder.extract_features(
+                                prev_tokens,
+                                encoder_out=encoder_out,
+                                embedding_copy=False,
+                                full_context_alignment=True
+                            )
+                            prev_output_tokens = self.decoder.output_projection(features)
+                unpad_output_tokens.append(res)
+
+            output_seqlen = max([len(res) for res in unpad_output_tokens])
+            output_tokens = [res + [self.tgt_dict.pad_index] * (output_seqlen - len(res)) for res in unpad_output_tokens]
+            output_tokens = torch.tensor(output_tokens, device=decoder_out.output_tokens.device, dtype=decoder_out.output_tokens.dtype)
+        
         elif self.args.decode_strategy in ["viterbi", "jointviterbi"]:
             scores = []
             indexs = []

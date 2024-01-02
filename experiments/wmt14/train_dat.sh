@@ -12,7 +12,7 @@ CUDA_VISIBLE_DEVICES=0 fairseq-train ${data_dir}  \
     --decoder-learned-pos --encoder-learned-pos \
     --share-all-embeddings --activation-fn gelu \
     --apply-bert-init \
-    --links-feature feature:position --decode-strategy lookahead \
+    --links-feature feature:position --decode-strategy lookahead. --decode-upsample-scale 8.0 \
     --max-source-positions 128 --max-target-positions 1024 --src-upsample-scale 8.0 \
     --criterion ${criterion} \
     --length-loss-factor 0 --max-transition-length 99999 \

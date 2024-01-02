@@ -233,41 +233,42 @@ class DiffuDAGLoss(FairseqCriterion):
         num_q_samples = 2
         tgt_tokens = tgt_tokens.repeat(num_q_samples, 1)
         
-        # Sample time step for both absorbing and multinomial
+        # Diffusion
         t1, weight_t = model.time_sampler.sample(sample["target"].shape[0], sample["target"].device)
         t2, _ = model.time_sampler.sample(sample["target"].shape[0], sample["target"].device)
         weight_t = weight_t.repeat(num_q_samples)
-        x_t, x_0_ignore, mask, t = model.diffusion.q_sample_coupled(x_0=sample["target"], t1=t1, t2=t2, non_special_sym_mask=non_special_sym_mask) 
+        x_t, x_0_ignore, mask, t = model.diffusion.q_sample_coupled(x_0=sample["target"], t1=t1, t2=t2, non_special_sym_mask=nonpad_positions) 
         prev_output_tokens = x_t.gather(-1, path.clip(min=0))
         prev_output_tokens.masked_fill_(path<0, model.diffusion.mask_idx)
 
-        dag_nll_loss = 0
-        nsentences = tgt_tokens.shape[0]
-        nvalidtokens = nonpad_positions
-        invalid_nsentences = 0
-        loss_nofactor = 0
-        loss = 0
+        # DAG loss
         rand_seed = random.randint(0, 19260817)
-
         word_ins_out, links = model.extract_features(prev_output_tokens, encoder_out, rand_seed, require_links=True, t=t)
-
         word_ins_out, match = torch_dag_logsoftmax_gather_inplace(word_ins_out, tgt_tokens.unsqueeze(1).expand(-1, prelen, -1))
         match = match.transpose(1, 2)
-
         if model.args.max_transition_length != -1:
             links = model.restore_valid_links(links)
-        loss_result = torch_diffusion_dag_loss(match, links, output_length, target_length, mask)
+
+        glat_prev_mask = (prev_output_tokens.ne(model.diffusion.mask_idx)).unsqueeze(1)
+        matchmask = torch.zeros(batch_size, target_length + 1, prelen, device=match.device, dtype=torch.bool).scatter_(1, path.unsqueeze(1) + 1, 1)[:, 1:]
+        match_all = match_all.masked_fill(glat_prev_mask, 0) + match_all.masked_fill(~matchmask, float("-inf")).masked_fill(~glat_prev_mask, 0).detach()
+        
+
+        loss_result = torch_dag_loss(match, links, output_length, target_length, mask)
         invalid_masks = loss_result.isinf().logical_or(loss_result.isnan())
         loss_result.masked_fill_(invalid_masks, 0)
-        invalid_nsentences += invalid_masks.sum().detach()
+        invalid_nsentences = invalid_masks.sum().detach()
 
         loss_result = -(loss_result / target_length).mean()
-        dag_nll_loss += loss_result.detach()
-        loss_nofactor += loss_result
+        dag_nll_loss = loss_result.detach()
+        loss_nofactor = loss_result
         reweighting_coeff = (1 - (t / self.num_timesteps))
         loss_result = reweighting_coeff * loss_result
         loss_result.backward()
-        loss += loss_result
+        loss = loss_result
+
+        nvalidtokens = nonpad_positions.sum()
+        nsentences = batch_size
 
         
         # dag_nll_loss = 0

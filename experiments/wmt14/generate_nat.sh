@@ -16,5 +16,6 @@ CUDA_VISIBLE_DEVICES=7 fairseq-generate ${data_dir} \
     --remove-bpe --max-tokens 4096 --seed 0 \
     --path ${average_checkpoint_path} \
     --skip-invalid-size-inputs-valid-test \
+    --decode-upsample-scale 8.0 \
     --model-overrides "{\"decode_strategy\":\"jointviterbi\",\"decode_viterbibeta\":1}" \
 
